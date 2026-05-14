@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DevCost Pro — BQ Analyser</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════
+   RESET + BASE
+═══════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;font-size:13px;line-height:1.4}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#161b22}
+::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+input,select,textarea{background:#1c2128;border:1px solid #30363d;color:#e6edf3;border-radius:4px;padding:3px 7px;font-family:inherit;font-size:12px;outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:#f0a500}
+input[type=range]{-webkit-appearance:none;height:4px;border-radius:4px;background:#30363d;cursor:pointer;width:100%;border:none;padding:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#f0a500;cursor:pointer}
+button{font-family:inherit;cursor:pointer;transition:opacity .15s}
+button:hover{opacity:.85}
+canvas{display:block}
+
+/* ═══════════════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════════════ */
+#hdr{background:#161b22;border-bottom:1px solid #30363d;padding:0 14px;height:46px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;gap:10px}
+#lot-bar{background:#161b22;border-bottom:1px solid #30363d;padding:5px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:46px;z-index:190}
+#app-body{display:flex;height:calc(100vh - 92px)}
+#sidebar{width:215px;min-width:215px;background:#161b22;border-right:1px solid #30363d;padding:11px 9px;overflow-y:auto;flex-shrink:0}
+#main{flex:1;overflow-y:auto;padding:11px 14px}
+#cmd-panel{width:275px;min-width:275px;background:#161b22;border-left:1px solid #30363d;display:flex;flex-direction:column;height:calc(100vh - 92px);flex-shrink:0}
+#cmd-panel.hidden{display:none}
+
+/* ═══════════════════════════════════════════════════
+   HEADER ELEMENTS
+═══════════════════════════════════════════════════ */
+.logo{width:24px;height:24px;border-radius:5px;background:#f0a500;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#000;flex-shrink:0}
+.brand{font-weight:700;font-size:15px}
+.brand span{color:#f0a500}
+.hdr-sub{font-size:10px;color:#8b949e;border-left:1px solid #30363d;padding-left:9px;margin-left:3px}
+.hdr-meta{font-size:10px;color:#8b949e;display:flex;gap:10px;align-items:center}
+.hdr-meta .v{font-family:monospace;font-weight:700}
+.btn-acc{padding:5px 13px;background:#f0a500;color:#000;border:none;border-radius:5px;font-weight:700;font-size:11px}
+.btn-ghost{padding:5px 12px;background:transparent;color:#8b949e;border:1px solid #30363d;border-radius:5px;font-size:11px}
+.btn-cmd{padding:5px 11px;border:1px solid #30363d;border-radius:5px;font-size:11px;font-weight:600;background:transparent;color:#8b949e}
+.btn-cmd.active{background:rgba(240,165,0,.15);color:#f0a500;border-color:#f0a500}
+.save-ts{font-size:10px;color:#3fb950;font-family:monospace}
+
+/* ═══════════════════════════════════════════════════
+   NAV TABS + LOT BUTTONS
+═══════════════════════════════════════════════════ */
+.ntabs{display:flex;gap:2px;flex-wrap:wrap;margin-left:auto}
+.ntab{padding:4px 10px;border-radius:5px;border:none;font-size:11px;font-weight:600;background:transparent;color:#8b949e}
+.ntab.on{background:#f0a500;color:#000}
+.ntab:hover:not(.on){color:#e6edf3}
+.lot-btn{padding:3px 11px;border-radius:4px;border:1px solid #30363d;background:transparent;color:#8b949e;font-size:11px}
+.lot-btn.on{border-color:#f0a500;background:rgba(240,165,0,.12);color:#f0a500;font-weight:700}
+
+/* ═══════════════════════════════════════════════════
+   SIDEBAR CONTROLS
+═══════════════════════════════════════════════════ */
+.sg{font-size:9px;color:#f0a500;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin:8px 0 5px}
+.sdiv{border:none;border-top:1px solid #30363d;margin:9px 0}
+.sl-row{margin-bottom:10px}
+.sl-hdr{display:flex;justify-content:space-between;margin-bottom:2px}
+.sl-lbl{font-size:10px;color:#8b949e}
+.sl-val{font-size:10px;font-weight:700;color:#f0a500;font-family:monospace}
+.so-item{display:flex;align-items:center;gap:5px;padding:4px 6px;margin-bottom:3px;border-radius:5px;border:1px solid #30363d;background:#1c2128;cursor:grab;font-size:10px;user-select:none}
+.so-item:hover,.so-item.drag-over{border-color:#f0a500}
+.so-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0}
+.mv-btn{background:none;border:1px solid #30363d;border-radius:3px;color:#8b949e;font-size:10px;padding:1px 4px;line-height:1}
+.mv-btn:hover:not(:disabled){color:#f0a500;border-color:#f0a500;opacity:1}
+.mv-btn:disabled{opacity:.2;cursor:default}
+
+/* ═══════════════════════════════════════════════════
+   CARDS + GRIDS
+═══════════════════════════════════════════════════ */
+.card{background:#1c2128;border:1px solid #30363d;border-radius:8px;padding:13px 15px}
+.stat{background:#1c2128;border:1px solid #30363d;border-radius:8px;padding:10px 13px}
+.stat-lbl{font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.stat-val{font-size:16px;font-weight:700;font-family:monospace}
+.stat-sub{font-size:10px;color:#8b949e;margin-top:2px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.chart-box{background:#1c2128;border:1px solid #30363d;border-radius:8px;padding:13px;margin-bottom:11px}
+.ct{font-size:12px;font-weight:700;color:#e6edf3;margin-bottom:9px}
+.mb11{margin-bottom:11px}
+
+/* ═══════════════════════════════════════════════════
+   BQ TABLE
+═══════════════════════════════════════════════════ */
+.sec-card{background:#1c2128;border:2px solid #30363d;border-radius:9px;margin-bottom:8px;overflow:hidden;transition:border-color .15s}
+.sec-card.drag-over{border-color:#f0a500}
+.sec-hdr{display:flex;align-items:center;padding:7px 10px;background:#161b22;gap:7px;user-select:none}
+.sec-name{flex:1;font-size:11px;font-weight:700;cursor:pointer}
+.sec-pct{font-family:monospace;font-size:11px;color:#f0a500;font-weight:700;min-width:38px;text-align:right}
+.sec-tot{font-family:monospace;font-size:11px;color:#e6edf3;min-width:88px;text-align:right}
+.sec-bar-wrap{width:60px;background:#30363d;border-radius:3px;height:5px;overflow:hidden}
+.sec-bar-fill{height:100%;border-radius:3px}
+.bq-tbl{width:100%;border-collapse:collapse}
+.bq-tbl th{padding:4px 5px;text-align:left;font-size:9px;color:#8b949e;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;background:#0d1117;border-bottom:1px solid #30363d}
+.bq-tbl th.r{text-align:right}
+.bq-tbl td{padding:3px 5px;border-bottom:1px solid rgba(48,54,61,.5);vertical-align:middle;font-size:12px}
+.bq-tbl tfoot td{padding:5px 7px;background:#0d1117;font-weight:700;font-size:11px;border-top:1px solid #30363d;text-align:right}
+.bq-row{transition:filter .1s}
+.bq-row:hover td{filter:brightness(1.15)}
+.bq-row.dragging{opacity:.25}
+.bq-row.drop-t td:first-child{border-top:2px solid #f0a500}
+.bq-row.drop-b td:first-child{border-bottom:2px solid #f0a500}
+.dh{cursor:grab;color:#30363d;font-size:14px;user-select:none;padding:0 3px;transition:color .15s;line-height:1;display:block}
+.dh:hover{color:#f0a500}
+.pb-w{background:#30363d;border-radius:3px;height:5px;overflow:hidden;min-width:55px}
+.pb-f{height:100%;border-radius:3px;transition:width .3s}
+.del-btn{background:none;border:none;color:#f85149;cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
+.bq-input{width:100%;font-size:11px;background:transparent;border:1px solid transparent;border-radius:3px;color:#e6edf3;padding:1px 4px}
+.bq-input:focus{border-color:#f0a500;outline:none}
+.gtot{background:#1c2128;border:1px solid #30363d;border-radius:8px;padding:9px 13px;display:flex;justify-content:space-between;align-items:center;margin-top:5px}
+.hint-bar{display:flex;align-items:center;gap:10px;padding:6px 11px;background:#1c2128;border-radius:6px;border:1px solid #30363d;font-size:10px;color:#8b949e;margin-bottom:9px;flex-wrap:wrap}
+
+/* ═══════════════════════════════════════════════════
+   INSIGHTS PANEL
+═══════════════════════════════════════════════════ */
+.ins-wrap{display:flex;height:calc(100vh - 92px);overflow:hidden}
+.ins-bq{flex:1;overflow-y:auto;padding:11px 13px}
+.ins-right{width:295px;min-width:295px;background:#161b22;border-left:1px solid #30363d;overflow-y:auto;padding:13px}
+
+/* ═══════════════════════════════════════════════════
+   DATA TABLES
+═══════════════════════════════════════════════════ */
+.dt{width:100%;border-collapse:collapse}
+.dt th{padding:7px 9px;font-size:9px;color:#8b949e;font-weight:700;text-transform:uppercase;text-align:right;background:#161b22;border-bottom:1px solid #30363d;white-space:nowrap}
+.dt th:first-child{text-align:left}
+.dt td{padding:6px 9px;text-align:right;border-bottom:1px solid #30363d;font-size:12px}
+.dt td:first-child{text-align:left}
+.dt tr:hover td{background:rgba(240,165,0,.04)}
+.sens-cell{padding:6px 9px;text-align:center;font-family:monospace;font-size:12px;font-weight:700}
+.sens-base{background:rgba(240,165,0,.1)}
+
+/* ═══════════════════════════════════════════════════
+   VARIATION / SCENARIO CARDS
+═══════════════════════════════════════════════════ */
+.var-card{border-radius:9px;padding:13px 15px;margin-bottom:10px;border:2px solid;background:#1c2128}
+.verd{padding:8px 11px;border-radius:6px;border:1px solid;font-size:11px;margin-top:9px}
+.risk-badge{display:inline-flex;align-items:center;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:700}
+.feas-vert{border-radius:10px;padding:17px 19px;margin-bottom:13px;display:flex;align-items:center;gap:13px;border:2px solid}
+.scen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px;margin-bottom:18px}
+
+/* ═══════════════════════════════════════════════════
+   COMMAND CENTER
+═══════════════════════════════════════════════════ */
+.cmd-title-bar{padding:10px 13px 8px;border-bottom:1px solid #30363d;flex-shrink:0}
+.cmd-kpi{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:7px 11px;border-bottom:1px solid #30363d;flex-shrink:0}
+.cmd-kpi-card{background:#1c2128;border-radius:4px;padding:5px 7px}
+.cmd-kpi-lbl{font-size:8px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px}
+.cmd-kpi-val{font-family:monospace;font-size:11px;font-weight:700}
+.cmd-presets{padding:7px 11px;border-bottom:1px solid #30363d;flex-shrink:0}
+.preset-btn{padding:3px 7px;font-size:9px;background:rgba(240,165,0,.08);color:#f0a500;border:1px solid rgba(240,165,0,.25);border-radius:4px;cursor:pointer;font-family:inherit;line-height:1.4;margin:2px}
+.cmd-log{flex:1;overflow-y:auto;padding:7px 11px;display:flex;flex-direction:column;gap:5px}
+.msg-user{display:flex;justify-content:flex-end}
+.msg-user span{background:#f0a500;color:#000;border-radius:10px 10px 3px 10px;padding:5px 10px;max-width:88%;font-size:11px;font-weight:500}
+.msg-ai span{background:rgba(63,185,80,.12);color:#3fb950;border-radius:10px 10px 10px 3px;padding:5px 10px;max-width:88%;border:1px solid rgba(63,185,80,.2);font-size:11px}
+.msg-sys{color:#8b949e;font-size:10px;padding:2px 0;border-bottom:1px solid rgba(48,54,61,.3)}
+.cmd-examples{padding:5px 11px;border-top:1px solid #30363d;flex-shrink:0}
+.ex-btn{padding:2px 6px;font-size:9px;background:transparent;color:#8b949e;border:1px solid #30363d;border-radius:3px;cursor:pointer;font-family:inherit;margin:2px}
+.cmd-input-row{padding:8px 11px;border-top:1px solid #30363d;flex-shrink:0;display:flex;gap:6px}
+.cmd-input{flex:1;background:#1c2128;border:1px solid #30363d;border-radius:5px;color:#e6edf3;font-size:11px;padding:6px 9px;outline:none}
+.cmd-input:focus{border-color:#f0a500}
+.cmd-send{padding:6px 11px;background:#f0a500;color:#000;border:none;border-radius:5px;font-weight:700;font-size:12px;cursor:pointer}
+.compare-box{padding:7px 11px;border-bottom:1px solid #30363d;flex-shrink:0}
+.cmp-pair{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.cmp-card{background:#1c2128;border-radius:5px;padding:7px 9px;border:1px solid #30363d;font-size:9px}
+.cmp-card.winner{background:rgba(63,185,80,.1);border-color:#3fb950}
+
+/* ═══════════════════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════════════════ */
+.mono{font-family:monospace}
+.hidden{display:none!important}
+.flex{display:flex}
+.flex-col{display:flex;flex-direction:column}
+.align-c{align-items:center}
+.gap-6{gap:6px}
+.gap-8{gap:8px}
+h2.page{font-size:13px;font-weight:700;color:#e6edf3;margin-bottom:10px}
+.tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700}
+
+/* Category row tints */
+.cat-0 td{background:rgba(88,166,255,.04)}
+.cat-1 td{background:rgba(63,185,80,.04)}
+.cat-2 td{background:rgba(188,140,255,.04)}
+.cat-3 td{background:rgba(255,166,87,.04)}
+.cat-4 td{background:rgba(248,81,73,.04)}
+.cat-5 td{background:rgba(121,192,255,.04)}
+.cat-6 td{background:rgba(86,211,100,.04)}
+.cat-7 td{background:rgba(240,165,0,.04)}
+.cat-8 td{background:rgba(255,122,114,.04)}
+.cat-9 td{background:rgba(210,168,255,.04)}
+.cat-10 td{background:rgba(126,231,135,.04)}
+.cat-11 td{background:rgba(255,161,152,.04)}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div class="flex align-c gap-8">
+    <div class="logo">D</div>
+    <span class="brand">DevCost <span>Pro</span></span>
+    <span class="hdr-sub">Mukim Tawar, Baling — Terrace House</span>
+  </div>
+  <div class="flex align-c gap-8">
+    <span id="save-ts" class="save-ts hidden"></span>
+    <span class="hdr-meta">
+      Build: <span id="h-build" class="v" style="color:#f0a500">—</span>
+      &nbsp;|&nbsp; Margin: <span id="h-margin" class="v">—</span>
+    </span>
+    <button class="btn-acc" onclick="manualSave()">💾 Save</button>
+    <button class="btn-ghost" onclick="resetAll()">Reset</button>
+    <button id="cmd-toggle" class="btn-cmd active" onclick="toggleCmd()">⌘ Command</button>
+  </div>
+</div>
+
+<div id="lot-bar">
+  <span style="font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:1px">Lot:</span>
+  <button class="lot-btn on" onclick="setLot(0,this)">INT Unit</button>
+  <button class="lot-btn" onclick="setLot(1,this)">End Lot A</button>
+  <button class="lot-btn" onclick="setLot(2,this)">End Lot B</button>
+  <button class="lot-btn" onclick="setLot(3,this)">Corner</button>
+  <div class="ntabs">
+    <button class="ntab on" onclick="showTab('dashboard',this)">📊 Dashboard</button>
+    <button class="ntab" onclick="showTab('bq',this)">📋 BQ + Insights</button>
+    <button class="ntab" onclick="showTab('pricing',this)">💰 Pricing</button>
+    <button class="ntab" onclick="showTab('variations',this)">🔬 Variations</button>
+    <button class="ntab" onclick="showTab('compare',this)">⚖️ Compare</button>
+    <button class="ntab" onclick="showTab('scenarios',this)">📁 Scenarios</button>
+    <button class="ntab" onclick="showTab('sensitivity',this)">📈 Sensitivity</button>
+    <button class="ntab" onclick="showTab('feasibility',this)">✅ Feasibility</button>
+  </div>
+</div>
+
+<div id="app-body">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div style="font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Variable Controls</div>
+    <div class="sg">COST ADJUSTMENTS</div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Material cost ±%</span><span class="sl-val" id="sv-matInf">0%</span></div><input type="range" min="-20" max="30" step="0.5" value="0" oninput="setV('matInf',+this.value);renderAll()"></div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Labour cost ±%</span><span class="sl-val" id="sv-labChg">0%</span></div><input type="range" min="-20" max="30" step="0.5" value="0" oninput="setV('labChg',+this.value);renderAll()"></div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Contractor markup %</span><span class="sl-val" id="sv-markup">10%</span></div><input type="range" min="0" max="30" step="0.5" value="10" oninput="setV('markup',+this.value);renderAll()"></div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Contingency %</span><span class="sl-val" id="sv-cont">5%</span></div><input type="range" min="0" max="20" step="0.5" value="5" oninput="setV('cont',+this.value);renderAll()"></div>
+    <hr class="sdiv">
+    <div class="sg">SOFT COSTS / UNIT</div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Land cost</span><span class="sl-val" id="sv-land">RM 30,000</span></div><input type="range" min="5000" max="150000" step="1000" value="30000" oninput="setV('land',+this.value);renderAll()"></div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Professional fees</span><span class="sl-val" id="sv-prof">RM 15,000</span></div><input type="range" min="0" max="50000" step="500" value="15000" oninput="setV('prof',+this.value);renderAll()"></div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Sales & marketing</span><span class="sl-val" id="sv-sales">RM 8,000</span></div><input type="range" min="0" max="30000" step="500" value="8000" oninput="setV('sales',+this.value);renderAll()"></div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Regulatory</span><span class="sl-val" id="sv-reg">RM 5,000</span></div><input type="range" min="0" max="20000" step="500" value="5000" oninput="setV('reg',+this.value);renderAll()"></div>
+    <hr class="sdiv">
+    <div class="sg">REVENUE</div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Units</span><span class="sl-val" id="sv-units">50 units</span></div><input type="range" min="1" max="300" step="1" value="50" oninput="setR('units',Math.round(+this.value));renderAll()"></div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Selling price</span><span class="sl-val" id="sv-price">RM 350,000</span></div><input type="range" min="100000" max="1000000" step="5000" value="350000" oninput="setR('price',+this.value);renderAll()"></div>
+    <hr class="sdiv">
+    <div class="sg">FINANCING</div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Interest rate % p.a.</span><span class="sl-val" id="sv-intRate">5%</span></div><input type="range" min="2" max="12" step="0.25" value="5" oninput="setV('intRate',+this.value);renderAll()"></div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Construction (yr)</span><span class="sl-val" id="sv-dur">2yr</span></div><input type="range" min="0.5" max="5" step="0.5" value="2" oninput="setV('dur',+this.value);renderAll()"></div>
+    <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Loan ratio %</span><span class="sl-val" id="sv-loanRatio">70%</span></div><input type="range" min="0" max="100" step="5" value="70" oninput="setV('loanRatio',this.value/100);renderAll()"></div>
+    <hr class="sdiv">
+    <div class="sg">SECTION ORDER</div>
+    <div style="font-size:9px;color:#8b949e;margin-bottom:5px">⠿ drag or ↑↓ to reorder</div>
+    <div id="sec-order-list"></div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="main">
+    <div id="tab-dashboard"></div>
+    <div id="tab-bq" class="hidden"></div>
+    <div id="tab-pricing" class="hidden"></div>
+    <div id="tab-variations" class="hidden"></div>
+    <div id="tab-compare" class="hidden"></div>
+    <div id="tab-scenarios" class="hidden"></div>
+    <div id="tab-sensitivity" class="hidden"></div>
+    <div id="tab-feasibility" class="hidden"></div>
+  </div>
+
+  <!-- COMMAND CENTER -->
+  <div id="cmd-panel">
+    <div class="cmd-title-bar">
+      <div class="flex align-c gap-6" style="font-weight:700;font-size:12px">
+        <span>⌘</span> Command Center
+        <button onclick="undoCmd()" title="Undo" style="margin-left:auto;background:none;border:1px solid #30363d;border-radius:3px;color:#8b949e;font-size:10px;padding:2px 6px;cursor:pointer">↩ Undo</button>
+        <button onclick="clearLog()" style="background:none;border:1px solid #30363d;border-radius:3px;color:#8b949e;font-size:10px;padding:2px 6px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-size:9px;color:#8b949e;margin-top:3px">Type commands to control the app live</div>
+    </div>
+    <div class="cmd-kpi">
+      <div class="cmd-kpi-card"><div class="cmd-kpi-lbl">Margin</div><div class="cmd-kpi-val" id="ck-margin" style="color:#f0a500">—</div></div>
+      <div class="cmd-kpi-card"><div class="cmd-kpi-lbl">Profit</div><div class="cmd-kpi-val" id="ck-profit" style="color:#3fb950">—</div></div>
+      <div class="cmd-kpi-card"><div class="cmd-kpi-lbl">TDC/unit</div><div class="cmd-kpi-val" id="ck-tdc" style="color:#58a6ff">—</div></div>
+      <div class="cmd-kpi-card"><div class="cmd-kpi-lbl">GDV</div><div class="cmd-kpi-val" id="ck-gdv" style="color:#bc8cff">—</div></div>
+    </div>
+    <div class="cmd-presets">
+      <div style="font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Quick presets</div>
+      <div>
+        <button class="preset-btn" onclick="runCmd('optimise margin')">⚡ Optimise Margin</button>
+        <button class="preset-btn" onclick="runCmd('reduce cost 10%')">📉 Reduce Cost 10%</button>
+        <button class="preset-btn" onclick="runCmd('premium pricing')">💎 Premium</button>
+        <button class="preset-btn" onclick="runCmd('affordable launch')">🏷️ Affordable</button>
+        <button class="preset-btn" onclick="runCmd('fast sell')">💨 Fast Sell</button>
+        <button class="preset-btn" onclick="runCmd('stress test')">🔥 Stress Test</button>
+        <button class="preset-btn" onclick="runCmd('add 5% inflation')">📈 +5% Inflation</button>
+        <button class="preset-btn" onclick="runCmd('show dashboard')">📊 Dashboard</button>
+        <button class="preset-btn" onclick="runCmd('show break-even')">✅ Break-even</button>
+        <button class="preset-btn" onclick="runCmd('show sensitivity')">🔬 Sensitivity</button>
+      </div>
+    </div>
+    <div id="compare-box" class="hidden compare-box"></div>
+    <div id="cmd-log" class="cmd-log"></div>
+    <div class="cmd-examples">
+      <div style="font-size:9px;color:#8b949e;margin-bottom:3px">Try:</div>
+      <button class="ex-btn" onclick="runCmd('Set selling price RM380k')">Set selling price RM380k</button>
+      <button class="ex-btn" onclick="runCmd('reduce tile cost 15%')">Reduce tile 15%</button>
+      <button class="ex-btn" onclick="runCmd('set units 60')">Set units 60</button>
+      <button class="ex-btn" onclick="runCmd('compare 340000 vs 380000')">Compare prices</button>
+    </div>
+    <div class="cmd-input-row">
+      <input id="cmd-input" class="cmd-input" placeholder="Type a command… (Enter to run)" onkeydown="if(event.key==='Enter'){runCmd(this.value);this.value=''}">
+      <button class="cmd-send" onclick="runCmd(document.getElementById('cmd-input').value);document.getElementById('cmd-input').value=''">⏎</button>
+    </div>
+  </div>
+
+</div><!-- end app-body -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  DevCost Pro — Plain HTML/CSS/JS
+//  Full port of the React version
+// ═══════════════════════════════════════════════════════════════
+
+// ── Colour tokens ────────────────────────────────────────────
+const C={bg:"#0d1117",surf:"#161b22",card:"#1c2128",bdr:"#30363d",acc:"#f0a500",txt:"#e6edf3",mut:"#8b949e",grn:"#3fb950",red:"#f85149",blu:"#58a6ff",pur:"#bc8cff",org:"#ffa657"};
+const CAT_COLORS=["#58a6ff","#3fb950","#bc8cff","#ffa657","#f85149","#79c0ff","#56d364","#f0a500","#ff7b72","#d2a8ff","#7ee787","#ffa198"];
+
+// ── BQ Data ───────────────────────────────────────────────────
+const BQ_RAW=[
+  ["1","1.1","Exc Building Platform","Below Floor","ms",12,128,128,128,258],
+  ["1","1.2a","Pad Footing — Excavation","Below Floor","ms",15,16,13,13,13],
+  ["1","1.2b","Pad Footing — Blinding","Below Floor","ms",12,11,11,11,11],
+  ["1","1.2c","Pad Footing — Concrete","Below Floor","mc",350,9,8.7,8.7,8.7],
+  ["1","1.2d","Pad Footing — Rebar","Below Floor","kg",3.40,1980,1920,1920,1920],
+  ["1","1.2e","Pad Footing — Formworks","Below Floor","ms",60,33,36,36,36],
+  ["1","1.3a","Column Stump — Concrete","Below Floor","mc",350,1,0.5,0.5,0.5],
+  ["1","1.3b","Column Stump — Rebar","Below Floor","kg",3.40,220,110,110,110],
+  ["1","1.3c","Column Stump — Formworks","Below Floor","ms",60,8,9,9,9],
+  ["1","1.4a","Ground Beam — Excavation","Below Floor","mc",15,7,8,8,8.3],
+  ["1","1.4b","Ground Beam — Blinding","Below Floor","ms",12,8,12.4,12.4,12.5],
+  ["1","1.4c","Ground Beam — Concrete","Below Floor","mc",350,6,7.5,7.5,7.8],
+  ["1","1.4d","Ground Beam — Rebar","Below Floor","kg",3.40,1122,1400,1400,1460],
+  ["1","1.4e","Ground Beam — Formworks","Below Floor","ms",60,86,75,75,76],
+  ["1","1.5a","Ground Slab — Hardcore 100mm thick","Below Floor","ms",22,77,77,77,89],
+  ["1","1.5b","Ground Slab — Blinding","Below Floor","ms",12,77,77,77,89],
+  ["1","1.5c","Ground Slab — Concrete 120mm thick","Below Floor","ms",42,77,77,77,89],
+  ["1","1.5d","Ground Slab — BRC A8","Below Floor","ms",18,154,154,154,178],
+  ["1","1.5e","Ground Slab — Formworks to side of slab","Below Floor","m",7,24,24,24,44],
+  ["1","1.5f","Ground Slab — DPM","Below Floor","ms",8,77,77,77,89],
+  ["1","1.6a","Porch — Hardcore","Below Floor","ms",22,45,45,45,45],
+  ["1","1.6b","Porch — Blinding","Below Floor","ms",12,45,45,45,45],
+  ["1","1.6c","Porch — Concrete Slab 100 thk","Below Floor","ms",35,45,45,45,45],
+  ["1","1.6d","Porch — BRC A6","Below Floor","ms",12,90,90,90,90],
+  ["1","1.6e","Porch — Formworks","Below Floor","m",5,6,6,6,6],
+  ["1","1.6f","Porch — Subsoil Drain & Sump","Below Floor","m",70,12,12,12,12],
+  ["2","2.1a","Column — Concrete","Frame","mc",350,3,3.3,3.3,3.9],
+  ["2","2.1b","Column — Rebar","Frame","kg",3.40,660,726,726,858],
+  ["2","2.1c","Column — Formworks","Frame","ms",60,65,72,72,85],
+  ["2","2.2a","Floor Beam — Concrete","Frame","mc",350,6.2,6.5,6.5,7.2],
+  ["2","2.2b","Floor Beam — Rebar","Frame","kg",3.40,1360,1420,1420,1572],
+  ["2","2.2c","Floor Beam — Formworks","Frame","ms",60,73,75,75,83],
+  ["2","2.3a","Roof Beam — Concrete","Frame","mc",350,5.3,5.5,5.5,6.1],
+  ["2","2.3b","Roof Beam — Rebar","Frame","kg",3.40,958,980,980,1086],
+  ["2","2.3c","Roof Beam — Formworks","Frame","ms",60,62,68,68,76],
+  ["2","2.4a","Roof Slab & Ledge — Concrete 100mm thk","Frame","ms",35,5.5,5.5,5.5,9.5],
+  ["2","2.4b","Roof Slab & Ledge — BRC A8","Frame","ms",18,11,11,11,19],
+  ["2","2.4c","Roof Slab & Ledge — Formworks","Frame","ms",60,5.5,5.5,5.5,9.5],
+  ["3","3a","Roof Trusses (lightweight)","Roof","ms",78,78,85,85,92],
+  ["3","3b","Roof Covering","Roof","ms",48,78,85,85,92],
+  ["3","3c","Porch Roof — Concrete Slab","Roof","ms",220,27,27,27,27],
+  ["3","3d","Waterproofing to Porch Slab","Roof","ms",43,27,27,27,27],
+  ["4","4a","Staircase — Structural","Staircase","ls",5000,1,1,1,1],
+  ["4","4b","Staircase — Architectural","Staircase","ls",6500,1,1,1,1],
+  ["5","5a","Party Wall","Wall","ms",75,92,51,51,51],
+  ["5","5b","Internal Wall","Wall","ms",38,98,98,98,98],
+  ["5","5c","External Wall","Wall","ms",38,64,105,105,105],
+  ["5","5d","Wall Capping","Wall","ls",3500,1,1,0,1],
+  ["5","5e","Metal Cladding/Louvres 1500×3000","Wall","no",1120,1,1,1,1],
+  ["5","5f","Brick Box-up incl Plaster & Paint","Wall","m",70,12,12,12,12],
+  ["5","5g","Balustrade to Balcony 1.0m high","Wall","m",130,5,5,5,10.5],
+  ["6","6a","Lintel","Window","m",23,9,11,11,15],
+  ["6","6b","Aluminium Window 600×600","Window","no",270,3,3,3,3],
+  ["6","6c","Aluminium Window 600×1200","Window","no",468,1,1,1,1],
+  ["6","6d","Aluminium Window 1200×1200","Window","no",1400,3,3,3,3],
+  ["6","6e","Aluminium Window 600×1800","Window","no",705,3,3,3,3],
+  ["6","6f","Aluminium Window 1800×1800","Window","no",2100,0,1,1,0],
+  ["6","6g","Louvre Window 600×600","Window","no",300,1,1,1,1],
+  ["7","7a","Metal Door Frame","Door","No",120,12,12,12,12],
+  ["7","7b","Single Leaf Plywood Door","Door","No",250,5,5,5,5],
+  ["7","7c","Entrance & Back Door","Door","No",380,2,2,2,2],
+  ["7","7d","Toilet Door","Door","No",150,5,5,5,5],
+  ["7","7e","Al. Sliding Door 2400×2100","Door","No",3500,1,1,1,1],
+  ["7","7f","Al. Sliding Door 1800×2100","Door","No",3200,1,1,1,2],
+  ["8","8a","Cement Screed/Render","Floor Finishes","ms",20,198,198,198,198],
+  ["8","8b","Porcelain Tiles","Floor Finishes","ms",110,121,121,121,121],
+  ["8","8c","Homogeneous Tiles (Porch/Balcony)","Floor Finishes","ms",80,36,36,36,36],
+  ["8","8d","Non-Slip Tiles","Floor Finishes","ms",80,12,12,12,12],
+  ["9","9a","Plaster to External Wall","Wall Finishes","ms",18,64,105,105,105],
+  ["9","9b","Plaster to Internal Wall","Wall Finishes","ms",18,162,203,203,203],
+  ["9","9c","Painting (Wall & Ceiling)","Wall Finishes","ms",10,226,308,308,308],
+  ["9","9d","Wall Tiles","Wall Finishes","ms",80,63,63,63,63],
+  ["10","10a","Plaster Glass Ceiling","Ceiling Finishes","ms",65,71,71,71,71],
+  ["10","10b","Skim Coat","Ceiling Finishes","ms",10,96,96,96,96],
+  ["10","10c","Painting (Ceiling)","Ceiling Finishes","ms",10,167,167,167,167],
+  ["10","10d","Roof Eaves & Painting","Ceiling Finishes","ms",75,6,16,16,16],
+  ["11","11a","WC","Sanitary","no",600,3,3,3,3],
+  ["11","11b","Basin","Sanitary","no",250,3,3,3,3],
+  ["11","11c","Hose Bib","Sanitary","no",80,3,3,3,3],
+  ["11","11d","Tap","Sanitary","no",50,5,5,5,5],
+  ["11","11e","Sink","Sanitary","no",250,1,1,1,1],
+  ["11","11f","Floor Trap","Sanitary","no",35,7,7,7,7],
+  ["11","11g","Shower Set","Sanitary","set",70,3,3,3,3],
+  ["12","12a","Plumbing Works","M&E","Lot",5400,1,1,1,1],
+  ["12","12b","Internal Sewer Pipe/Manhole","M&E","Lot",7500,1,1,1,1],
+  ["12","12d","Electrical Works","M&E","lot",15000,1,1,1,1],
+  ["12","12e","Termite Treatment","External Works","ms",5,128,128,128,128],
+  ["12","12f","Rubbish/Meter Compartment","External Works","ls",8000,1,1,0,1],
+  ["12","12g","Turfing","External Works","ms",10,5,5,26,138],
+  ["12","12h","Brick Fencing incl Plaster & Paint","External Works","ms",150,24,32,67,117],
+  ["12","12j","Gate","External Works","no",2500,1,1,1,1],
+];
+
+// ── State ─────────────────────────────────────────────────────
+const INIT_CATS=[];
+BQ_RAW.forEach(([,,,cat])=>{if(!INIT_CATS.includes(cat))INIT_CATS.push(cat);});
+const LS_KEY="dcp_v4";
+let _uid=1; const uid=()=>_uid++;
+const mkBQ=()=>BQ_RAW.map(([sec,sub,desc,cat,unit,rate,...qty])=>({id:uid(),sec,sub,desc,cat,unit,rate,qty:[...qty]}));
+
+function loadState(){try{const s=localStorage.getItem(LS_KEY);return s?JSON.parse(s):null;}catch{return null;}}
+function saveState(d){try{localStorage.setItem(LS_KEY,JSON.stringify(d));}catch{}}
+
+const saved=loadState();
+let bq      = saved?.bq   || mkBQ();
+let cats    = saved?.cats  || [...INIT_CATS];
+let v       = saved?.v     || {matInf:0,labChg:0,markup:10,cont:5,land:30000,prof:15000,sales:8000,reg:5000,intRate:5,dur:2,loanRatio:0.7,gfa:139};
+let r       = saved?.r     || {units:50,price:350000};
+let lot     = 0;
+let curTab  = "dashboard";
+let openSecs= {};
+let variations = saved?.variations || [{id:"v1",name:"Ceramic tiles instead of porcelain",hypothesis:"Replace porcelain (RM 110/m²) with ceramic (RM 55/m²). Does the saving justify quality trade-off?",overrides:[{id:null,keyword:"porcelain",rate:55,desc:"Ceramic Tiles (was: Porcelain)"}],color:C.blu}];
+let scenarios  = saved?.scenarios  || [{id:"base",name:"Base case",v:{...v},r:{...r},lot:0,bq:null}];
+let cmdHistory = []; // undo stack
+let compareResult = null;
+let cmdOpen = true;
+let autoTimer = null;
+
+// ── Helpers ───────────────────────────────────────────────────
+const fmt   = n=>"RM "+Math.round(n).toLocaleString();
+const fmtP  = n=>n.toFixed(1)+"%";
+const fmtSP = n=>(n>=0?"+":"")+n.toFixed(1)+"%";
+const catColor = cat=>CAT_COLORS[cats.indexOf(cat)%CAT_COLORS.length];
+const catIdx   = cat=>cats.indexOf(cat)%12;
+
+function setV(k,val){v={...v,[k]:val};syncSliderLabels();scheduleAutosave();}
+function setR(k,val){r={...r,[k]:val};syncSliderLabels();scheduleAutosave();}
+
+// ── Financial engine ──────────────────────────────────────────
+function calcFin(bqArr,vv,rr,l){
+  const MAT=["Below Floor","Frame","Roof","Floor Finishes","Wall Finishes","Ceiling Finishes","Window","Door"];
+  const LAB=["Wall","Staircase","External Works"];
+  let adj=0;
+  bqArr.forEach(x=>{
+    let b=x.qty[l]*x.rate;
+    if(MAT.includes(x.cat))b*=(1+vv.matInf/100);
+    else if(LAB.includes(x.cat))b*=(1+vv.labChg/100);
+    else b*=(1+vv.matInf/200+vv.labChg/200);
+    adj+=b;
+  });
+  const wm=adj*(1+vv.markup/100);
+  const cg=wm*(vv.cont/100);
+  const sc=vv.land+vv.prof+vv.sales+vv.reg;
+  const loan=(wm+cg)*rr.units*vv.loanRatio;
+  const fin=loan*(vv.intRate/100)*vv.dur/rr.units;
+  const tdc=wm+cg+sc+fin;
+  const gdv=rr.price*rr.units;
+  const profit=gdv-tdc*rr.units;
+  const margin=gdv>0?profit/gdv*100:0;
+  const catMap={};
+  bqArr.forEach(x=>{catMap[x.cat]=(catMap[x.cat]||0)+x.qty[l]*x.rate;});
+  const catBreak=Object.entries(catMap).map(([name,value])=>({name,value:Math.round(value)}));
+  const wf=[
+    {name:"Construction",value:Math.round(wm)},
+    {name:"Contingency",value:Math.round(cg)},
+    {name:"Land",value:Math.round(vv.land)},
+    {name:"Professional",value:Math.round(vv.prof)},
+    {name:"Finance",value:Math.round(fin)},
+    {name:"Sales & Mkt",value:Math.round(vv.sales)},
+    {name:"Regulatory",value:Math.round(vv.reg)},
+  ];
+  return{wm,cg,tdc,tdcT:tdc*rr.units,gdv,profit,margin,breakEven:tdc,psm:tdc/vv.gfa,psf:tdc/vv.gfa/10.764,catBreak,wf,viable:margin>=10};
+}
+const bqTotal=(bqArr,l)=>bqArr.reduce((s,x)=>s+x.qty[l]*x.rate,0);
+const applyOvs=(bqArr,ovs)=>bqArr.map(item=>{
+  const ov=ovs.find(o=>{
+    if(o.id&&o.id===item.id)return true;
+    if(o.keyword&&item.desc.toLowerCase().includes(o.keyword))return true;
+    return false;
+  });
+  return ov?{...item,rate:ov.rate!==undefined?ov.rate:item.rate,desc:ov.desc||item.desc}:item;
+});
+
+let fin=calcFin(bq,v,r,lot);
+let baseTotal=bqTotal(bq,lot);
+
+// ── Chart.js instances ────────────────────────────────────────
+let charts={};
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function mkChart(id,config){
+  destroyChart(id);
+  const el=document.getElementById(id);
+  if(!el)return;
+  charts[id]=new Chart(el.getContext('2d'),config);
+  return charts[id];
+}
+
+const CHART_DEFAULTS={
+  color:"#8b949e",
+  plugins:{legend:{labels:{color:"#8b949e",font:{size:10}}},tooltip:{backgroundColor:"#1c2128",titleColor:"#8b949e",bodyColor:"#e6edf3",borderColor:"#30363d",borderWidth:1}},
+  scales:{x:{ticks:{color:"#8b949e",font:{size:10}},grid:{color:"rgba(48,54,61,.5)"}},y:{ticks:{color:"#8b949e",font:{size:10}},grid:{color:"rgba(48,54,61,.5)"}}}
+};
+
+// ── Slider sync ───────────────────────────────────────────────
+const sliderMap={
+  matInf:  [n=>n+"%",        "sv-matInf"],
+  labChg:  [n=>n+"%",        "sv-labChg"],
+  markup:  [n=>n+"%",        "sv-markup"],
+  cont:    [n=>n+"%",        "sv-cont"],
+  land:    [n=>fmt(n),       "sv-land"],
+  prof:    [n=>fmt(n),       "sv-prof"],
+  sales:   [n=>fmt(n),       "sv-sales"],
+  reg:     [n=>fmt(n),       "sv-reg"],
+  intRate: [n=>n+"%",        "sv-intRate"],
+  dur:     [n=>n+"yr",       "sv-dur"],
+  loanRatio:[n=>Math.round(n*100)+"%","sv-loanRatio"],
+  units:   [n=>n+" units",   "sv-units"],
+  price:   [n=>fmt(n),       "sv-price"],
+};
+function syncSliderLabels(){
+  Object.entries(sliderMap).forEach(([k,[fn,id]])=>{
+    const el=document.getElementById(id);
+    if(el)el.textContent=fn(k==="loanRatio"?v.loanRatio:k==="units"||k==="price"?r[k]:v[k]);
+  });
+  // sync range inputs
+  const rangeKeys=["matInf","labChg","markup","cont","land","prof","sales","reg","intRate","dur","loanRatio"];
+  document.querySelectorAll('#sidebar input[type=range]').forEach((el,i)=>{
+    const k=rangeKeys[i];
+    if(k==="loanRatio")el.value=Math.round(v.loanRatio*100);
+    else el.value=v[k];
+  });
+  const revRanges=document.querySelectorAll('#sidebar input[type=range]');
+  if(revRanges[9]){}
+  // revenue sliders are last two
+  document.querySelectorAll('#sidebar input[type=range]').forEach((el,i)=>{
+    if(i===9)el.value=v.dur;
+    if(i===10)el.value=Math.round(v.loanRatio*100);
+    if(i===7)el.value=r.units;
+    if(i===8)el.value=r.price;
+  });
+}
+
+// ── Autosave ──────────────────────────────────────────────────
+function scheduleAutosave(){
+  clearTimeout(autoTimer);
+  autoTimer=setTimeout(()=>{
+    const ts=new Date().toLocaleTimeString();
+    saveState({bq,cats,v,r,variations,scenarios,ts});
+    const el=document.getElementById("save-ts");
+    if(el){el.textContent="Auto-saved "+ts;el.classList.remove("hidden");}
+  },1500);
+}
+function manualSave(){
+  const ts=new Date().toLocaleTimeString();
+  saveState({bq,cats,v,r,variations,scenarios,ts});
+  const el=document.getElementById("save-ts");
+  if(el){el.textContent="✓ Saved "+ts;el.classList.remove("hidden");}
+}
+function resetAll(){
+  if(!confirm("Reset all data to original BQ? Cannot be undone."))return;
+  bq=mkBQ();cats=[...INIT_CATS];v={matInf:0,labChg:0,markup:10,cont:5,land:30000,prof:15000,sales:8000,reg:5000,intRate:5,dur:2,loanRatio:0.7,gfa:139};
+  r={units:50,price:350000};variations=[];scenarios=[{id:"base",name:"Base case",v:{...v},r:{...r},lot:0,bq:null}];
+  localStorage.removeItem(LS_KEY);
+  syncSliderLabels();renderAll();
+}
+
+// ── Tab switching ─────────────────────────────────────────────
+function showTab(tabId,btn){
+  curTab=tabId;
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  const bqInsights=tabId==="bq";
+  document.getElementById("sidebar").style.display=bqInsights?"none":"";
+  document.getElementById("main").style.padding=bqInsights?"0":"11px 14px";
+  renderTab(tabId);
+}
+function setLot(i,btn){
+  lot=i;
+  document.querySelectorAll('.lot-btn').forEach(b=>b.classList.remove('on'));
+  if(btn)btn.classList.add('on');
+  renderAll();
+}
+function toggleCmd(){
+  cmdOpen=!cmdOpen;
+  const p=document.getElementById("cmd-panel");
+  const b=document.getElementById("cmd-toggle");
+  p.classList.toggle("hidden",!cmdOpen);
+  b.classList.toggle("active",cmdOpen);
+  b.textContent=cmdOpen?"⌘ Hide":"⌘ Command";
+}
+
+// ── Master render ─────────────────────────────────────────────
+function renderAll(){
+  fin=calcFin(bq,v,r,lot);
+  baseTotal=bqTotal(bq,lot);
+  updateHeader();
+  updateCmdKPI();
+  renderSectionOrder();
+  renderTab(curTab);
+  scheduleAutosave();
+}
+
+function updateHeader(){
+  const mCol=fin.margin>=15?C.grn:fin.margin>=10?C.acc:C.red;
+  const hm=document.getElementById("h-margin");
+  const hb=document.getElementById("h-build");
+  if(hm){hm.textContent=fmtP(fin.margin);hm.style.color=mCol;}
+  if(hb){hb.textContent=fmt(baseTotal);hb.style.color=C.acc;}
+  syncSliderLabels();
+}
+function updateCmdKPI(){
+  const mCol=fin.margin>=15?C.grn:fin.margin>=10?C.acc:C.red;
+  const el=(id,val,col)=>{const e=document.getElementById(id);if(e){e.textContent=val;if(col)e.style.color=col;}};
+  el("ck-margin",fmtP(fin.margin),mCol);
+  el("ck-profit",fmt(fin.profit),fin.profit>=0?C.grn:C.red);
+  el("ck-tdc",fmt(fin.tdc),C.blu);
+  el("ck-gdv",fmt(fin.gdv),C.pur);
+}
+
+// ── Render section order list in sidebar ──────────────────────
+let secDragFrom=null;
+function renderSectionOrder(){
+  const el=document.getElementById("sec-order-list");if(!el)return;
+  el.innerHTML="";
+  cats.forEach((cat,ci)=>{
+    const col=catColor(cat);
+    const d=document.createElement("div");
+    d.className="so-item";d.draggable=true;
+    d.innerHTML=`<span style="font-size:14px;color:#8b949e">⠿</span><div class="so-dot" style="background:${col}"></div><span style="flex:1">${ci+1}. ${cat}</span><div style="display:flex;flex-direction:column;gap:1px"><button class="mv-btn" onclick="moveSec('${cat}',-1)" ${ci===0?"disabled":""}>↑</button><button class="mv-btn" onclick="moveSec('${cat}',1)" ${ci===cats.length-1?"disabled":""}>↓</button></div>`;
+    d.addEventListener("dragstart",()=>{secDragFrom=cat;d.style.opacity=".3";});
+    d.addEventListener("dragend",()=>{d.style.opacity="1";secDragFrom=null;});
+    d.addEventListener("dragover",e=>{e.preventDefault();d.classList.add("drag-over");});
+    d.addEventListener("dragleave",()=>d.classList.remove("drag-over"));
+    d.addEventListener("drop",e=>{e.preventDefault();d.classList.remove("drag-over");if(secDragFrom&&secDragFrom!==cat){const fi=cats.indexOf(secDragFrom),ti=cats.indexOf(cat);cats.splice(fi,1);cats.splice(ti,0,secDragFrom);}renderAll();});
+    el.appendChild(d);
+  });
+}
+function moveSec(cat,dir){
+  const i=cats.indexOf(cat),ni=i+dir;
+  if(ni<0||ni>=cats.length)return;
+  [cats[i],cats[ni]]=[cats[ni],cats[i]];renderAll();
+}
+
+// ── Tab router ────────────────────────────────────────────────
+function renderTab(tabId){
+  document.querySelectorAll('[id^="tab-"]').forEach(el=>el.classList.add("hidden"));
+  const el=document.getElementById("tab-"+tabId);
+  if(el)el.classList.remove("hidden");
+  const renders={dashboard:renderDashboard,bq:renderBQ,pricing:renderPricing,variations:renderVariations,compare:renderCompare,scenarios:renderScenarios,sensitivity:renderSensitivity,feasibility:renderFeasibility};
+  if(renders[tabId])renders[tabId]();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DASHBOARD TAB
+// ═══════════════════════════════════════════════════════════════
+function renderDashboard(){
+  const el=document.getElementById("tab-dashboard");
+  const mCol=fin.margin>=15?C.grn:fin.margin>=10?C.acc:C.red;
+  el.innerHTML=`
+  <div class="g4 mb11">
+    ${statCard("Total Dev Cost (project)",fmt(fin.tdcT),r.units+" units",C.blu)}
+    ${statCard("TDC per unit",fmt(fin.tdc),"RM "+Math.round(fin.psm)+"/m²",C.acc)}
+    ${statCard("GDV",fmt(fin.gdv),r.units+" × "+fmt(r.price),C.pur)}
+    ${statCard("Gross profit / margin",fmt(fin.profit),fmtP(fin.margin)+" margin",fin.profit>=0?C.grn:C.red)}
+  </div>
+  <div class="g3 mb11">
+    ${statCard("Break-even / unit",fmt(fin.breakEven),"","")}
+    ${statCard("Cost per m²","RM "+Math.round(fin.psm).toLocaleString(),"","")}
+    ${statCard("Cost per ft²","RM "+Math.round(fin.psf).toLocaleString(),"","")}
+  </div>
+  <div class="g2 mb11">
+    <div class="chart-box">
+      <div class="ct">Cost breakdown by category</div>
+      <canvas id="ch-pie" height="200"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="ct">TDC waterfall per unit</div>
+      <canvas id="ch-wf" height="200"></canvas>
+    </div>
+  </div>
+  <div class="chart-box">
+    <div class="ct">Lot type comparison</div>
+    <canvas id="ch-lots" height="120"></canvas>
+  </div>`;
+
+  // Pie
+  const pieData=fin.catBreak;
+  mkChart("ch-pie",{type:"doughnut",data:{labels:pieData.map(x=>x.name),datasets:[{data:pieData.map(x=>x.value),backgroundColor:CAT_COLORS.slice(0,pieData.length),borderColor:"#1c2128",borderWidth:2}]},options:{plugins:{legend:{position:"right",labels:{color:"#8b949e",font:{size:9},boxWidth:10}},tooltip:{callbacks:{label:ctx=>" "+fmt(ctx.raw)}}},responsive:true,maintainAspectRatio:false}});
+
+  // Waterfall bar
+  mkChart("ch-wf",{type:"bar",data:{labels:fin.wf.map(x=>x.name),datasets:[{data:fin.wf.map(x=>x.value),backgroundColor:CAT_COLORS,borderRadius:4}]},options:{indexAxis:"y",plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>" "+fmt(ctx.raw)}}},scales:{x:{ticks:{color:"#8b949e",font:{size:9},callback:v=>"RM "+Math.round(v/1000)+"k"},grid:{color:"rgba(48,54,61,.4)"}},y:{ticks:{color:"#8b949e",font:{size:9}},grid:{display:false}}},responsive:true,maintainAspectRatio:false}});
+
+  // Lot comparison
+  const lotLabels=["INT Unit","End Lot A","End Lot B","Corner"];
+  const lotData=lotLabels.map((_,i)=>{const f=calcFin(bq,v,r,i);return{tdc:Math.round(f.tdc),psm:Math.round(f.psm)};});
+  mkChart("ch-lots",{type:"bar",data:{labels:lotLabels,datasets:[{label:"TDC/unit",data:lotData.map(x=>x.tdc),backgroundColor:C.acc,borderRadius:4},{label:"Cost/m²",data:lotData.map(x=>x.psm),backgroundColor:C.blu,borderRadius:4}]},options:{plugins:{legend:{labels:{color:"#8b949e",font:{size:9}},boxWidth:10},tooltip:{callbacks:{label:ctx=>" RM "+ctx.raw.toLocaleString()}}},scales:{x:{ticks:{color:"#8b949e",font:{size:9}},grid:{display:false}},y:{ticks:{color:"#8b949e",font:{size:9},callback:v=>"RM "+Math.round(v/1000)+"k"},grid:{color:"rgba(48,54,61,.4)"}}},responsive:true,maintainAspectRatio:false}});
+}
+
+function statCard(label,value,sub,color){
+  return `<div class="stat" style="border-top:3px solid ${color||C.bdr}"><div class="stat-lbl">${label}</div><div class="stat-val" style="color:${color||C.txt}">${value}</div>${sub?`<div class="stat-sub">${sub}</div>`:""}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BQ + INSIGHTS TAB
+// ═══════════════════════════════════════════════════════════════
+let bqDragFrom=null,bqDragPos="b";
+
+function renderBQ(){
+  const el=document.getElementById("tab-bq");
+  el.innerHTML=`<div class="ins-wrap"><div class="ins-bq" id="bq-editor-inner"></div><div class="ins-right" id="insights-inner"></div></div>`;
+  renderBQEditor();
+  renderInsights();
+}
+
+function renderBQEditor(){
+  const el=document.getElementById("bq-editor-inner");if(!el)return;
+  const total=baseTotal||1;
+  let html=`
+  <div class="flex align-c" style="justify-content:space-between;margin-bottom:9px">
+    <span style="font-weight:700;font-size:13px">BQ Editor — ${["INT Unit","End Lot A","End Lot B","Corner"][lot]} (${bq.length} items)</span>
+    <div class="flex gap-6">
+      <button class="btn-acc" style="font-size:11px;padding:4px 12px" onclick="addBqItem()">+ Add item</button>
+      <button class="btn-ghost" style="font-size:11px;padding:4px 12px" onclick="bq=mkBQ();cats=[...INIT_CATS];renderAll()">Reset BQ</button>
+    </div>
+  </div>
+  <div class="hint-bar">
+    <span>⠿ drag to reorder rows or across sections</span>
+    <span style="border-left:1px solid #30363d;padding-left:10px">↑↓ one-step move</span>
+    <span style="border-left:1px solid #30363d;padding-left:10px">Coloured rows = category</span>
+    <span style="margin-left:auto;color:#f0a500;font-weight:700;font-family:monospace">${fmt(baseTotal)}</span>
+  </div>`;
+
+  cats.forEach((cat,catIdx)=>{
+    const items=bq.filter(x=>x.cat===cat);
+    if(!items.length)return;
+    const secTotal=items.reduce((s,x)=>s+x.qty[lot]*x.rate,0);
+    const secPct=(secTotal/total*100).toFixed(1);
+    const isOpen=openSecs[cat]!==false;
+    const cc=catColor(cat);
+    html+=`
+    <div class="sec-card" id="sec-${cat.replace(/\W/g,'_')}" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropOnSection('${cat}',event)">
+      <div class="sec-hdr" style="border-left:4px solid ${cc}">
+        <span style="font-size:15px;color:${C.mut};cursor:grab;user-select:none" draggable="true" ondragstart="secDragFrom='${cat}'" ondragend="secDragFrom=null">⠿</span>
+        <span class="sec-name" onclick="openSecs['${cat}']=openSecs['${cat}']===false?true:false;renderBQ()">${catIdx+1}. ${cat} <span style="color:#8b949e;font-weight:400;font-size:10px">(${items.length})</span></span>
+        <div class="sec-bar-wrap"><div class="sec-bar-fill" style="width:${Math.min(parseFloat(secPct),100)}%;background:${cc}"></div></div>
+        <span class="sec-pct">${secPct}%</span>
+        <span class="sec-tot">${fmt(secTotal)}</span>
+        <button class="mv-btn" onclick="moveSec('${cat}',-1)" ${catIdx===0?"disabled":""}>↑</button>
+        <button class="mv-btn" onclick="moveSec('${cat}',1)" ${catIdx===cats.length-1?"disabled":""}>↓</button>
+        <span onclick="openSecs['${cat}']=openSecs['${cat}']===false?true:false;renderBQ()" style="color:#8b949e;font-size:10px;cursor:pointer;display:inline-block;transform:${isOpen?"rotate(180deg)":"rotate(0deg)"};transition:transform .2s;margin-left:3px">▼</span>
+      </div>`;
+
+    if(isOpen){
+      html+=`<div style="overflow-x:auto"><table class="bq-tbl">
+        <thead><tr>
+          <th></th><th>No.</th><th>Description</th><th>Unit</th>
+          <th class="r" style="background:rgba(240,165,0,.06)">Qty</th>
+          <th class="r">Rate (RM)</th>
+          <th class="r">Amount</th><th class="r">% share</th><th>Bar</th><th>↑↓</th><th></th>
+        </tr></thead><tbody>`;
+      items.forEach((item,ii)=>{
+        const gi=bq.findIndex(x=>x.id===item.id);
+        const tot=item.qty[lot]*item.rate;
+        const pct=tot/total*100;
+        const barCol=pct>5?C.red:pct>2?C.org:pct>1?C.acc:C.grn;
+        const ci=catIdx%12;
+        html+=`<tr class="bq-row cat-${ci}" id="bqr-${item.id}" draggable="true"
+          ondragstart="bqDragFrom=${item.id};this.classList.add('dragging')"
+          ondragend="this.classList.remove('dragging');document.querySelectorAll('.bq-row').forEach(r=>r.classList.remove('drop-t','drop-b'))"
+          ondragover="event.preventDefault();bqDragPos=event.clientY<this.getBoundingClientRect().top+this.getBoundingClientRect().height/2?'t':'b';document.querySelectorAll('.bq-row').forEach(r=>r.classList.remove('drop-t','drop-b'));this.classList.add(bqDragPos==='t'?'drop-t':'drop-b')"
+          ondrop="dropBqItem(${item.id},event)">
+          <td style="width:18px;padding:3px 4px 3px 7px"><span class="dh">⠿</span></td>
+          <td style="color:#8b949e;font-family:monospace;font-size:10px;width:38px;white-space:nowrap">${item.sub}</td>
+          <td style="min-width:165px"><input class="bq-input" value="${esc(item.desc)}" onchange="updateBqItem(${item.id},'desc',this.value)" style="min-width:155px"></td>
+          <td><input class="bq-input" value="${item.unit}" onchange="updateBqItem(${item.id},'unit',this.value)" style="width:38px;text-align:center"></td>
+          <td style="background:rgba(240,165,0,.07)"><input type="number" class="bq-input" value="${item.qty[lot]}" onchange="updateBqQty(${item.id},+this.value)" style="width:65px;text-align:right;background:transparent"></td>
+          <td><input type="number" class="bq-input" value="${item.rate}" onchange="updateBqItem(${item.id},'rate',+this.value)" style="width:72px;text-align:right"></td>
+          <td style="text-align:right;font-family:monospace;font-size:11px;color:#f0a500;font-weight:700">${Math.round(tot).toLocaleString()}</td>
+          <td style="text-align:right;font-family:monospace;font-size:11px;font-weight:700;color:${barCol}">${pct>=0.05?pct.toFixed(1):"<0.1"}%</td>
+          <td style="min-width:60px"><div class="pb-w"><div class="pb-f" style="width:${Math.min(pct*4,100)}%;background:${barCol}"></div></div></td>
+          <td style="white-space:nowrap"><div class="flex gap-6"><button class="mv-btn" onclick="moveBqItem(${item.id},-1)" ${gi===0?"disabled":""}>↑</button><button class="mv-btn" onclick="moveBqItem(${item.id},1)" ${gi===bq.length-1?"disabled":""}>↓</button></div></td>
+          <td><button class="del-btn" onclick="deleteBqItem(${item.id})">×</button></td>
+        </tr>`;
+      });
+      html+=`</tbody><tfoot><tr>
+        <td colspan="6" style="text-align:right;color:#8b949e">Section subtotal</td>
+        <td>${fmt(secTotal)}</td><td>${secPct}%</td><td colspan="3"></td>
+      </tr></tfoot></table></div>`;
+    }
+    html+="</div>";
+  });
+
+  html+=`<div class="gtot">
+    <span style="font-weight:700;font-size:13px">BASE BUILD COST TOTAL</span>
+    <div class="flex align-c gap-8">
+      <span style="font-size:11px;color:#8b949e">Margin: <span style="font-family:monospace;font-weight:700;color:${fin.margin>=15?C.grn:fin.margin>=10?C.acc:C.red}">${fmtP(fin.margin)}</span></span>
+      <span style="font-family:monospace;font-size:15px;color:#f0a500;font-weight:700">${fmt(baseTotal)}</span>
+    </div>
+  </div>`;
+  el.innerHTML=html;
+}
+
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+
+function dropBqItem(targetId,e){
+  e.preventDefault();
+  document.querySelectorAll('.bq-row').forEach(r=>r.classList.remove('drop-t','drop-b'));
+  if(!bqDragFrom||bqDragFrom===targetId)return;
+  const fromIdx=bq.findIndex(x=>x.id===bqDragFrom);
+  const [moved]=bq.splice(fromIdx,1);
+  const target=bq.find(x=>x.id===targetId);
+  if(target)moved.cat=target.cat;
+  let ti=bq.findIndex(x=>x.id===targetId);
+  if(bqDragPos==="b")ti+=1;
+  bq.splice(ti,0,moved);
+  bqDragFrom=null;
+  renderAll();
+}
+function dropOnSection(cat,e){
+  e.preventDefault();
+  const sec=document.getElementById("sec-"+cat.replace(/\W/g,'_'));
+  if(sec)sec.classList.remove('drag-over');
+  if(secDragFrom&&secDragFrom!==cat){
+    const fi=cats.indexOf(secDragFrom),ti=cats.indexOf(cat);
+    cats.splice(fi,1);cats.splice(ti,0,secDragFrom);
+  }
+  secDragFrom=null;
+  renderAll();
+}
+function updateBqItem(id,key,val){bq=bq.map(x=>x.id===id?{...x,[key]:val}:x);renderAll();}
+function updateBqQty(id,val){bq=bq.map(x=>{if(x.id!==id)return x;const q=[...x.qty];q[lot]=val;return{...x,qty:q};});renderAll();}
+function moveBqItem(id,dir){const i=bq.findIndex(x=>x.id===id),ni=i+dir;if(ni<0||ni>=bq.length)return;[bq[i],bq[ni]]=[bq[ni],bq[i]];renderAll();}
+function deleteBqItem(id){bq=bq.filter(x=>x.id!==id);renderAll();}
+function addBqItem(){bq=[...bq,{id:uid(),sec:"",sub:"",desc:"New item",cat:cats[0]||"Below Floor",unit:"ms",rate:0,qty:[0,0,0,0]}];renderAll();}
+
+function renderInsights(){
+  const el=document.getElementById("insights-inner");if(!el)return;
+  const total=baseTotal||1;
+  const insData=Object.entries(
+    bq.reduce((m,x)=>{m[x.cat]=(m[x.cat]||0)+x.qty[lot]*x.rate;return m;},{})
+  ).sort((a,b)=>b[1]-a[1]).map(([cat,val])=>({cat,val,pct:val/total*100,imp:val*0.05/(fin.gdv||1)*100}));
+
+  let html=`<div style="font-size:12px;font-weight:700;color:#e6edf3;margin-bottom:3px">📊 Cost Insights</div>
+  <div style="font-size:10px;color:#8b949e;margin-bottom:12px">Category breakdown — ${["INT Unit","End Lot A","End Lot B","Corner"][lot]}</div>`;
+
+  insData.forEach(ins=>{
+    const col=catColor(ins.cat);
+    html+=`<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:8px;height:8px;border-radius:2px;background:${col};flex-shrink:0"></div><span style="font-size:11px;font-weight:600">${ins.cat}</span></div>
+        <span style="font-size:9px;color:#f0a500;font-family:monospace;font-weight:700">${ins.pct.toFixed(1)}%</span>
+      </div>
+      <div style="background:#30363d;border-radius:3px;height:7px;overflow:hidden;margin-bottom:3px"><div style="width:${Math.min(ins.pct,100)}%;background:${col};height:100%;border-radius:3px;transition:width .3s"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px">
+        <span style="font-family:monospace;font-weight:700">${fmt(ins.val)}</span>
+        <span style="color:#8b949e">5% cut → <strong style="color:#3fb950">+${ins.imp.toFixed(2)}%</strong> margin</span>
+      </div>
+    </div>`;
+  });
+
+  html+=`<hr style="border:none;border-top:1px solid #30363d;margin:13px 0">
+  <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:8px">Category totals</div>
+  <table class="dt" style="font-size:11px">
+    <thead><tr><th>Category</th><th>Amount</th><th>%</th></tr></thead><tbody>`;
+  insData.forEach(ins=>{
+    html+=`<tr style="border-bottom:1px solid rgba(48,54,61,.5)">
+      <td><div style="display:flex;align-items:center;gap:5px"><div style="width:7px;height:7px;border-radius:2px;background:${catColor(ins.cat)};flex-shrink:0"></div>${ins.cat}</div></td>
+      <td style="text-align:right;font-family:monospace;color:#f0a500;font-weight:700">${fmt(ins.val)}</td>
+      <td style="text-align:right;font-family:monospace;color:#8b949e">${ins.pct.toFixed(1)}%</td>
+    </tr>`;
+  });
+  html+=`<tr style="border-top:1px solid #30363d"><td style="font-weight:700">Total</td><td style="text-align:right;font-family:monospace;color:#f0a500;font-weight:700;font-size:12px">${fmt(baseTotal)}</td><td style="text-align:right;font-family:monospace;color:#f0a500;font-weight:700">100%</td></tr>
+  </tbody></table>
+  <hr style="border:none;border-top:1px solid #30363d;margin:13px 0">
+  <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:8px">Key metrics</div>`;
+  [["TDC / unit",fmt(fin.tdc),C.blu],["GDV",fmt(fin.gdv),C.pur],["Gross margin",fmtP(fin.margin),fin.margin>=15?C.grn:fin.margin>=10?C.acc:C.red],["Break-even",fmt(fin.breakEven),""],["Cost / m²","RM "+Math.round(fin.psm).toLocaleString(),""],["Cost / ft²","RM "+Math.round(fin.psf).toLocaleString(),""]].forEach(([k,val,col])=>{
+    html+=`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #30363d;font-size:11px"><span style="color:#8b949e">${k}</span><span style="font-family:monospace;font-weight:700;color:${col||C.txt}">${val}</span></div>`;
+  });
+  html+=`<hr style="border:none;border-top:1px solid #30363d;margin:13px 0">
+  <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:8px">Top cost drivers</div>`;
+  insData.slice(0,3).forEach((ins,i)=>{
+    html+=`<div style="background:#0d1117;border-radius:6px;padding:8px 10px;margin-bottom:7px;border-left:3px solid ${catColor(ins.cat)}">
+      <div style="font-weight:600;font-size:11px;margin-bottom:2px">${ins.cat}</div>
+      <div style="font-size:10px;color:#8b949e">${fmt(ins.val)} · ${ins.pct.toFixed(1)}% of build</div>
+      <div style="font-size:10px;color:#3fb950;margin-top:2px">5% cut saves <strong>RM ${Math.round(ins.val*0.05).toLocaleString()}</strong>/unit</div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PRICING TAB
+// ═══════════════════════════════════════════════════════════════
+function renderPricing(){
+  const el=document.getElementById("tab-pricing");
+  const lots=["INT Unit","End Lot A","End Lot B","Corner"];
+  const rowsHtml=lots.map((l,i)=>{
+    const f=calcFin(bq,v,r,i);
+    return `<tr style="background:${i===lot?"rgba(240,165,0,.06)":"transparent"}">
+      <td style="font-weight:700;color:${i===lot?C.acc:C.txt}">${l}</td>
+      <td class="mono">${fmt(f.tdc)}</td>
+      <td class="mono">RM ${Math.round(f.psm).toLocaleString()}</td>
+      <td class="mono">RM ${Math.round(f.psf).toLocaleString()}</td>
+      <td class="mono">${fmt(f.breakEven)}</td>
+      <td class="mono" style="color:${f.margin>=15?C.grn:f.margin>=10?C.acc:C.red};font-weight:700">${fmtP(f.margin)}</td>
+      <td class="mono" style="color:${f.profit>=0?C.grn:C.red}">${fmt(f.profit/r.units)}</td>
+    </tr>`;
+  }).join("");
+
+  el.innerHTML=`
+  <h2 class="page">Revenue & Pricing</h2>
+  <div class="g2 mb11">
+    <div class="card">
+      <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:11px">Revenue inputs</div>
+      <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Number of units</span><span class="sl-val" id="p-units">${r.units} units</span></div><input type="range" min="1" max="300" step="1" value="${r.units}" oninput="setR('units',Math.round(+this.value));document.getElementById('p-units').textContent=Math.round(+this.value)+' units';renderAll()"></div>
+      <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">Selling price / unit</span><span class="sl-val" id="p-price">${fmt(r.price)}</span></div><input type="range" min="100000" max="1000000" step="5000" value="${r.price}" oninput="setR('price',+this.value);document.getElementById('p-price').textContent=fmt(+this.value);renderAll()"></div>
+      <div class="sl-row"><div class="sl-hdr"><span class="sl-lbl">GFA / unit (m²)</span><span class="sl-val" id="p-gfa">${v.gfa} m²</span></div><input type="range" min="80" max="300" step="1" value="${v.gfa}" oninput="setV('gfa',+this.value);document.getElementById('p-gfa').textContent=+this.value+' m²';renderAll()"></div>
+    </div>
+    <div class="g2">
+      ${statCard("GDV",fmt(fin.gdv),"",C.pur)}
+      ${statCard("Total Dev Cost",fmt(fin.tdcT),"",C.blu)}
+      ${statCard("Profit",fmt(fin.profit),"",fin.profit>=0?C.grn:C.red)}
+      ${statCard("Gross Margin",fmtP(fin.margin),"",fin.margin>=15?C.grn:fin.margin>=10?C.acc:C.red)}
+      ${statCard("Break-even",fmt(fin.breakEven),"","")}
+      ${statCard("Price buffer",fmt(r.price-fin.breakEven),"",r.price>fin.breakEven?C.grn:C.red)}
+    </div>
+  </div>
+  <div class="chart-box mb11">
+    <div class="ct">Pricing summary — all lot types</div>
+    <table class="dt"><thead><tr><th>Lot</th><th>TDC/unit</th><th>Cost/m²</th><th>Cost/ft²</th><th>Break-even</th><th>Margin</th><th>Profit/unit</th></tr></thead>
+    <tbody>${rowsHtml}</tbody></table>
+  </div>
+  <div class="chart-box">
+    <div class="ct">Margin vs selling price</div>
+    <canvas id="ch-margin-price" height="160"></canvas>
+  </div>`;
+
+  const pData=Array.from({length:13},(_,i)=>{
+    const p=r.price-60000+i*10000;
+    const f=calcFin(bq,v,{...r,price:p},lot);
+    return{label:"RM "+Math.round(p/1000)+"k",margin:parseFloat(f.margin.toFixed(1)),profit:Math.round(f.profit/1000)};
+  });
+  mkChart("ch-margin-price",{type:"line",data:{labels:pData.map(x=>x.label),datasets:[{label:"Margin %",data:pData.map(x=>x.margin),borderColor:C.acc,backgroundColor:"transparent",pointRadius:0,borderWidth:2,yAxisID:"y"},{label:"Profit RM'000",data:pData.map(x=>x.profit),borderColor:C.grn,backgroundColor:"transparent",pointRadius:0,borderWidth:2,yAxisID:"y1"}]},options:{plugins:{legend:{labels:{color:"#8b949e",font:{size:10}}}},scales:{x:{ticks:{color:"#8b949e",font:{size:10}},grid:{color:"rgba(48,54,61,.4)"}},y:{ticks:{color:"#8b949e",font:{size:10}},grid:{color:"rgba(48,54,61,.4)"}},y1:{position:"right",ticks:{color:"#8b949e",font:{size:10}},grid:{display:false}}},responsive:true,maintainAspectRatio:false}});
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  VARIATIONS TAB
+// ═══════════════════════════════════════════════════════════════
+let editingVar=null;
+
+function renderVariations(){
+  const el=document.getElementById("tab-variations");
+  if(editingVar){renderVarEditor(el);return;}
+  let html=`<h2 class="page">Variation Studio — what-if analysis</h2>
+  <div class="card mb11">
+    <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:9px">Create new variation</div>
+    <input id="var-name" placeholder="Name e.g. Ceramic tiles instead of porcelain" style="width:100%;margin-bottom:7px;padding:6px 10px;font-size:12px">
+    <textarea id="var-hyp" rows="2" placeholder="Hypothesis / rationale…" style="width:100%;resize:vertical;margin-bottom:7px;font-size:11px;padding:6px 9px"></textarea>
+    <button class="btn-acc" onclick="startNewVar()">Build this variation →</button>
+  </div>`;
+
+  variations.forEach((va,vi)=>{
+    const mb=applyOvs(bq,va.overrides);
+    const f=calcFin(mb,v,r,lot);
+    const saving=fin.tdc-f.tdc,mDelta=f.margin-fin.margin;
+    const ovsHtml=va.overrides.map(ov=>{
+      const orig=bq.find(x=>ov.id?x.id===ov.id:x.desc.toLowerCase().includes(ov.keyword||""));
+      if(!orig)return "";
+      const diff=orig.qty[lot]*(ov.rate!==undefined?ov.rate:orig.rate)-orig.qty[lot]*orig.rate;
+      return `<div style="display:flex;align-items:center;gap:7px;padding:4px 8px;background:#0d1117;border-radius:4px;margin-bottom:3px;font-size:11px">
+        <span style="flex:1">${ov.desc||orig.desc}</span>
+        <span style="color:#8b949e">RM ${orig.rate} → RM ${ov.rate!==undefined?ov.rate:orig.rate}</span>
+        <span style="font-family:monospace;color:${diff<=0?C.grn:C.red};font-weight:700">${(diff<=0?"−":"+")+"RM "+Math.abs(Math.round(diff)).toLocaleString()}/unit</span>
+      </div>`;
+    }).join("");
+    html+=`<div class="var-card" style="border-color:${va.color}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px">
+        <div><div style="font-weight:700;font-size:14px;margin-bottom:3px">${va.name}</div><div style="font-size:11px;color:#8b949e">${va.hypothesis||""}</div></div>
+        <div style="display:flex;gap:5px">
+          <button onclick="startEditVar(${vi})" style="padding:4px 11px;background:transparent;color:${va.color};border:1px solid ${va.color};border-radius:4px;font-size:11px;font-weight:600;cursor:pointer">Edit</button>
+          <button onclick="deleteVar(${vi})" style="padding:4px 7px;background:none;color:#8b949e;border:1px solid #30363d;border-radius:4px;font-size:11px;cursor:pointer">✕</button>
+        </div>
+      </div>
+      <div class="g4 mb11">
+        <div style="background:#161b22;border-radius:5px;padding:7px 9px"><div style="font-size:9px;color:#8b949e;text-transform:uppercase;margin-bottom:3px">Saving/unit</div><div style="font-family:monospace;font-size:12px;font-weight:700;color:${saving>=0?C.grn:C.red}">${(saving>=0?"−":"+")+"RM "+Math.abs(Math.round(saving)).toLocaleString()}</div></div>
+        <div style="background:#161b22;border-radius:5px;padding:7px 9px"><div style="font-size:9px;color:#8b949e;text-transform:uppercase;margin-bottom:3px">Margin Δ</div><div style="font-family:monospace;font-size:12px;font-weight:700;color:${mDelta>=0?C.grn:C.red}">${fmtSP(mDelta)}</div></div>
+        <div style="background:#161b22;border-radius:5px;padding:7px 9px"><div style="font-size:9px;color:#8b949e;text-transform:uppercase;margin-bottom:3px">New TDC</div><div style="font-family:monospace;font-size:12px;font-weight:700;color:${C.blu}">${fmt(f.tdc)}</div></div>
+        <div style="background:#161b22;border-radius:5px;padding:7px 9px"><div style="font-size:9px;color:#8b949e;text-transform:uppercase;margin-bottom:3px">New margin</div><div style="font-family:monospace;font-size:12px;font-weight:700;color:${f.margin>=15?C.grn:f.margin>=10?C.acc:C.red}">${fmtP(f.margin)}</div></div>
+      </div>
+      ${ovsHtml}
+      <div class="verd" style="background:${saving>=0?"rgba(63,185,80,.08)":"rgba(248,81,73,.08)"};border-color:${saving>=0?C.grn:C.red}">
+        <span style="font-weight:700;color:${saving>=0?C.grn:C.red}">${saving>=0?"✓ Worth proceeding — ":"✗ Increases cost — "}</span>
+        <span style="color:#8b949e">${saving>=0?`Saves RM ${Math.abs(Math.round(saving)).toLocaleString()}/unit (RM ${Math.abs(Math.round(saving*r.units)).toLocaleString()} total). Margin ${fmtSP(mDelta)}.`:`Adds RM ${Math.abs(Math.round(saving)).toLocaleString()}/unit. Review necessity.`}</span>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+function startNewVar(){
+  const name=document.getElementById("var-name")?.value.trim()||"New variation";
+  const hyp=document.getElementById("var-hyp")?.value.trim()||"";
+  editingVar={id:"new_"+Date.now(),name,hypothesis:hyp,overrides:[],color:CAT_COLORS[variations.length%CAT_COLORS.length],isNew:true};
+  renderVariations();
+}
+function startEditVar(vi){editingVar={...variations[vi],vi,isNew:false};renderVariations();}
+function deleteVar(vi){if(confirm("Delete this variation?"))variations.splice(vi,1);renderVariations();}
+
+function renderVarEditor(el){
+  const va=editingVar;
+  let ovsHtml=va.overrides.map((ov,oi)=>{
+    const orig=bq.find(x=>ov.id?x.id===ov.id:ov.keyword?x.desc.toLowerCase().includes(ov.keyword):(x.id===ov.bqId));
+    if(!orig)return "";
+    const origCost=orig.qty[lot]*orig.rate,newCost=orig.qty[lot]*(ov.rate!==undefined?ov.rate:orig.rate),diff=newCost-origCost;
+    return `<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <input value="${esc(ov.desc||orig.desc)}" onchange="editingVar.overrides[${oi}].desc=this.value" style="flex:1;font-weight:600;font-size:12px;background:transparent;border:none;border-bottom:1px solid #30363d;color:#e6edf3;padding:2px 0">
+        <button onclick="editingVar.overrides.splice(${oi},1);renderVariations()" style="background:none;border:none;color:#f85149;cursor:pointer;font-size:14px;margin-left:5px">×</button>
+      </div>
+      <div class="g2" style="gap:8px;margin-bottom:6px">
+        <div><div style="font-size:9px;color:#8b949e;margin-bottom:2px">Orig: RM ${orig.rate}/${orig.unit}</div>
+          <div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:#8b949e">New rate RM</span><input type="number" value="${ov.rate!==undefined?ov.rate:orig.rate}" onchange="editingVar.overrides[${oi}].rate=+this.value;renderVariations()" style="width:80px;text-align:right;border-color:#f0a500"></div>
+        </div>
+        <div><div style="font-size:9px;color:#8b949e;margin-bottom:2px">Qty: ${orig.qty[lot]} ${orig.unit}</div>
+          <div style="font-size:11px;padding:4px 7px;background:#0d1117;border-radius:4px;display:flex;justify-content:space-between"><span style="color:#8b949e">${fmt(origCost)} → ${fmt(newCost)}</span><span style="font-family:monospace;font-weight:700;color:${diff<=0?C.grn:C.red}">${(diff<=0?"−RM ":"+RM ")+Math.abs(Math.round(diff)).toLocaleString()}</span></div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  const mb=applyOvs(bq,va.overrides);
+  const preview=calcFin(mb,v,r,lot);
+  const saving=fin.tdc-preview.tdc;
+
+  let catListHtml="";
+  cats.forEach(cat=>{
+    catListHtml+=`<div style="padding:4px 9px;background:#161b22;font-size:9px;font-weight:700;color:#8b949e;text-transform:uppercase;position:sticky;top:0">${cat}</div>`;
+    bq.filter(x=>x.cat===cat).forEach(item=>{
+      const added=va.overrides.find(o=>o.id===item.id||o.bqId===item.id||(o.keyword&&item.desc.toLowerCase().includes(o.keyword)));
+      const pct=(item.qty[lot]*item.rate/baseTotal*100).toFixed(1);
+      catListHtml+=`<div onclick="${added?"":"addVarItem("+item.id+")"}" style="display:flex;align-items:center;gap:7px;padding:4px 9px;border-bottom:1px solid #30363d;cursor:${added?"default":"pointer"};background:${added?"rgba(240,165,0,.06)":"transparent"};opacity:${added?.6:1}">
+        <span style="flex:1;font-size:11px">${item.sub} ${esc(item.desc)}</span>
+        <span style="font-size:10px;color:#8b949e;font-family:monospace">RM ${item.rate}</span>
+        <span style="font-size:10px;color:#f0a500;font-family:monospace;min-width:34px;text-align:right">${pct}%</span>
+        ${added?`<span style="font-size:9px;color:#f0a500;padding:1px 4px;border:1px solid #f0a500;border-radius:3px">✓</span>`:`<span style="font-size:9px;color:#8b949e">+</span>`}
+      </div>`;
+    });
+  });
+
+  el.innerHTML=`
+  <div style="display:flex;align-items:center;gap:9px;margin-bottom:13px">
+    <button class="btn-ghost" onclick="editingVar=null;renderVariations()">← Back</button>
+    <input value="${esc(va.name)}" onchange="editingVar.name=this.value" style="flex:1;font-size:14px;font-weight:700;padding:5px 9px;background:transparent;border:1px solid #30363d;border-radius:4px;color:#e6edf3">
+    <button class="btn-acc" onclick="saveVar()">Save variation</button>
+  </div>
+  <div class="g2">
+    <div>
+      <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:7px">Click items to modify</div>
+      <div style="max-height:420px;overflow-y:auto;border:1px solid #30363d;border-radius:8px">${catListHtml}</div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:7px">Adjust values</div>
+      ${va.overrides.length===0?`<div style="padding:14px;background:#1c2128;border-radius:7px;border:1px dashed #30363d;color:#8b949e;font-size:11px;text-align:center;margin-bottom:11px">← Click items on the left</div>`:""}
+      ${ovsHtml}
+      <div class="card" style="border:1px solid #f0a500;margin-top:11px">
+        <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:7px">⚡ Live preview</div>
+        <div class="g2" style="margin-bottom:8px">
+          ${[["Base TDC/unit",fmt(fin.tdc),C.mut],["New TDC/unit",fmt(preview.tdc),C.blu],["Saving/unit",fmt(Math.abs(fin.tdc-preview.tdc)),fin.tdc>=preview.tdc?C.grn:C.red],["Project saving",fmt(Math.abs(fin.tdcT-preview.tdcT)),fin.tdc>=preview.tdc?C.grn:C.red],["Base margin",fmtP(fin.margin),C.mut],["New margin",fmtP(preview.margin),preview.margin>=15?C.grn:preview.margin>=10?C.acc:C.red]].map(([l,val,col])=>`<div style="background:#161b22;border-radius:4px;padding:5px 8px"><div style="font-size:9px;color:#8b949e;margin-bottom:1px">${l}</div><div style="font-family:monospace;font-size:12px;font-weight:700;color:${col}">${val}</div></div>`).join("")}
+        </div>
+        <div style="padding:7px 10px;border-radius:5px;background:${fin.tdc>=preview.tdc?"rgba(63,185,80,.08)":"rgba(248,81,73,.08)"};border:1px solid ${fin.tdc>=preview.tdc?C.grn:C.red};font-size:11px;color:#8b949e">
+          ${fin.tdc>=preview.tdc?`✓ Saves RM ${Math.round((fin.tdc-preview.tdc)*r.units).toLocaleString()} across ${r.units} units. Margin ${fmtSP(preview.margin-fin.margin)}.`:`✗ Adds RM ${Math.round((preview.tdc-fin.tdc)*r.units).toLocaleString()} to project cost.`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function addVarItem(id){
+  const item=bq.find(x=>x.id===id);if(!item)return;
+  if(!editingVar.overrides.find(o=>o.id===id))
+    editingVar.overrides.push({id,bqId:id,desc:item.desc,rate:item.rate,origRate:item.rate});
+  renderVariations();
+}
+function saveVar(){
+  if(!editingVar)return;
+  const va={...editingVar};
+  delete va.isNew;delete va.vi;
+  if(editingVar.isNew)variations.push({...va,id:"v"+Date.now()});
+  else{const i=variations.findIndex(x=>x.id===va.id);if(i>=0)variations[i]=va;}
+  editingVar=null;scheduleAutosave();renderVariations();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COMPARE TAB
+// ═══════════════════════════════════════════════════════════════
+function renderCompare(){
+  const el=document.getElementById("tab-compare");
+  const varFins=variations.map(va=>{const mb=applyOvs(bq,va.overrides);return calcFin(mb,v,r,lot);});
+  const rowsHtml=variations.map((va,vi)=>{
+    const f=varFins[vi],saving=(fin.tdc-f.tdc)*r.units,tdcDiff=f.tdc-fin.tdc,mDelta=f.margin-fin.margin;
+    return `<tr>
+      <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:${va.color};display:inline-block"></span><span style="font-weight:600;font-size:12px">${va.name}</span></span></td>
+      <td class="mono">${fmt(f.tdc)}</td>
+      <td class="mono" style="color:${tdcDiff<=0?C.grn:C.red};font-weight:700">${(tdcDiff<=0?"−":"+")+"RM "+Math.abs(Math.round(tdcDiff)).toLocaleString()}</td>
+      <td class="mono">${fmt(f.tdcT)}</td>
+      <td class="mono" style="color:${saving>=0?C.grn:C.red};font-weight:700">${(saving>=0?"−":"+")+"RM "+Math.abs(Math.round(saving)).toLocaleString()}</td>
+      <td class="mono" style="color:${f.margin>=15?C.grn:f.margin>=10?C.acc:C.red};font-weight:700">${fmtP(f.margin)}</td>
+      <td class="mono" style="color:${mDelta>=0?C.grn:C.red};font-weight:700">${fmtSP(mDelta)}%</td>
+      <td><span class="tag" style="background:${saving>=0?"rgba(63,185,80,.15)":"rgba(248,81,73,.15)"};color:${saving>=0?C.grn:C.red}">${saving>=0?"✓ Proceed":"✗ Review"}</span></td>
+    </tr>`;
+  }).join("");
+
+  el.innerHTML=`
+  <h2 class="page">Compare all variations vs base case</h2>
+  <div class="chart-box mb11">
+    <table class="dt"><thead><tr><th>Variation</th><th>TDC/unit</th><th>vs Base</th><th>Project TDC</th><th>Saving</th><th>Margin</th><th>Δ Margin</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr style="background:#161b22">
+        <td style="font-weight:700;color:#f0a500">📌 Base case</td>
+        <td class="mono">${fmt(fin.tdc)}</td><td style="color:#8b949e">—</td>
+        <td class="mono">${fmt(fin.tdcT)}</td><td style="color:#8b949e">—</td>
+        <td class="mono" style="color:${fin.margin>=15?C.grn:fin.margin>=10?C.acc:C.red};font-weight:700">${fmtP(fin.margin)}</td>
+        <td style="color:#8b949e">—</td>
+        <td><span class="tag" style="background:rgba(240,165,0,.15);color:#f0a500">Base</span></td>
+      </tr>
+      ${rowsHtml}
+    </tbody></table>
+  </div>
+  <div class="g2">
+    <div class="chart-box"><div class="ct">TDC per unit</div><canvas id="ch-cmp-tdc" height="180"></canvas></div>
+    <div class="chart-box"><div class="ct">Gross margin %</div><canvas id="ch-cmp-margin" height="180"></canvas></div>
+  </div>`;
+
+  const labels=["Base",...variations.map(v=>v.name.substring(0,20))];
+  const tdcVals=[Math.round(fin.tdc),...varFins.map(f=>Math.round(f.tdc))];
+  const mgVals=[parseFloat(fin.margin.toFixed(1)),...varFins.map(f=>parseFloat(f.margin.toFixed(1)))];
+  const colors=[C.acc,...variations.map(v=>v.color||C.blu)];
+  mkChart("ch-cmp-tdc",{type:"bar",data:{labels,datasets:[{label:"TDC/unit",data:tdcVals,backgroundColor:colors,borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>" "+fmt(ctx.raw)}}},scales:{x:{ticks:{color:"#8b949e",font:{size:9}},grid:{display:false}},y:{ticks:{color:"#8b949e",font:{size:9},callback:v=>"RM "+Math.round(v/1000)+"k"},grid:{color:"rgba(48,54,61,.4)"}}},responsive:true,maintainAspectRatio:false}});
+  mkChart("ch-cmp-margin",{type:"bar",data:{labels,datasets:[{label:"Margin %",data:mgVals,backgroundColor:colors,borderRadius:4}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw+"%"}}},scales:{x:{ticks:{color:"#8b949e",font:{size:9}},grid:{display:false}},y:{ticks:{color:"#8b949e",font:{size:9},callback:v=>v+"%"},grid:{color:"rgba(48,54,61,.4)"}}},responsive:true,maintainAspectRatio:false}});
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SCENARIOS TAB
+// ═══════════════════════════════════════════════════════════════
+function renderScenarios(){
+  const el=document.getElementById("tab-scenarios");
+  const cardsHtml=scenarios.map((s,si)=>{
+    const f=calcFin(s.bq||bq,s.v,s.r,s.lot);
+    const lots=["INT Unit","End Lot A","End Lot B","Corner"];
+    return `<div class="card" style="border-top:3px solid #f0a500">
+      <div style="font-weight:700;margin-bottom:7px;font-size:13px">${s.name}</div>
+      <div style="font-size:11px;color:#8b949e;line-height:1.9">
+        Lot: <span style="color:#e6edf3">${lots[s.lot]}</span><br>
+        BQ items: <span style="color:#e6edf3">${(s.bq||bq).length}</span><br>
+        TDC: <span style="font-family:monospace;color:#e6edf3">${fmt(f.tdcT)}</span><br>
+        Profit: <span style="font-family:monospace;color:${f.profit>=0?C.grn:C.red}">${fmt(f.profit)}</span><br>
+        Margin: <span style="font-family:monospace;color:${f.margin>=15?C.grn:f.margin>=10?C.acc:C.red}">${fmtP(f.margin)}</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:9px">
+        <button onclick="loadScen(${si})" style="flex:1;padding:5px 0;background:rgba(240,165,0,.12);color:#f0a500;border:1px solid #f0a500;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700">Load</button>
+        ${s.id!=="base"?`<button onclick="deleteScen(${si})" style="padding:5px 7px;background:none;color:#8b949e;border:1px solid #30363d;border-radius:4px;font-size:11px;cursor:pointer">✕</button>`:""}
+      </div>
+    </div>`;
+  }).join("");
+
+  const cmpHtml=scenarios.length>1?`
+  <div class="chart-box" style="margin-top:18px">
+    <div class="ct">Scenario comparison</div>
+    <canvas id="ch-scen" height="220"></canvas>
+  </div>`:"";
+
+  el.innerHTML=`
+  <h2 class="page">Scenario Simulation</h2>
+  <p style="font-size:11px;color:#8b949e;margin-bottom:11px">Each scenario saves the current <strong style="color:#e6edf3">BQ, variables, revenue settings and lot type</strong> as a frozen snapshot.</p>
+  <div style="display:flex;gap:8px;margin-bottom:15px;align-items:center">
+    <input id="scen-name" placeholder="Name e.g. Conservative / Optimistic / After BQ edit" style="width:320px;padding:6px 10px;font-size:12px">
+    <button class="btn-acc" onclick="saveScen()">Save current state</button>
+  </div>
+  <div class="scen-grid">${cardsHtml}</div>
+  ${cmpHtml}`;
+
+  if(scenarios.length>1){
+    const sLabels=scenarios.map(s=>s.name);
+    const sFins=scenarios.map(s=>calcFin(s.bq||bq,s.v,s.r,s.lot));
+    mkChart("ch-scen",{type:"bar",data:{labels:sLabels,datasets:[
+      {label:"TDC",data:sFins.map(f=>Math.round(f.tdcT)),backgroundColor:C.blu,borderRadius:3,yAxisID:"y"},
+      {label:"GDV",data:sFins.map(f=>Math.round(f.gdv)),backgroundColor:C.pur,borderRadius:3,yAxisID:"y"},
+      {label:"Profit",data:sFins.map(f=>Math.round(f.profit)),backgroundColor:C.grn,borderRadius:3,yAxisID:"y"},
+      {label:"Margin %",data:sFins.map(f=>parseFloat(f.margin.toFixed(1))),type:"line",borderColor:C.acc,pointRadius:4,borderWidth:2,yAxisID:"y1"},
+    ]},options:{plugins:{legend:{labels:{color:"#8b949e",font:{size:10}}}},scales:{x:{ticks:{color:"#8b949e",font:{size:10}},grid:{display:false}},y:{ticks:{color:"#8b949e",font:{size:9},callback:n=>"RM "+Math.round(n/1e6)+"M"},grid:{color:"rgba(48,54,61,.4)"}},y1:{position:"right",ticks:{color:"#8b949e",font:{size:9},callback:n=>n+"%"},grid:{display:false}}},responsive:true,maintainAspectRatio:false}});
+  }
+}
+function saveScen(){
+  const name=document.getElementById("scen-name")?.value.trim()||"Scenario "+(scenarios.length+1);
+  scenarios.push({id:"s"+Date.now(),name,v:{...v},r:{...r},lot,bq:JSON.parse(JSON.stringify(bq))});
+  document.getElementById("scen-name").value="";
+  scheduleAutosave();renderScenarios();
+}
+function loadScen(i){const s=scenarios[i];v={...s.v};r={...s.r};lot=s.lot;if(s.bq)bq=JSON.parse(JSON.stringify(s.bq));syncSliderLabels();renderAll();}
+function deleteScen(i){if(confirm("Delete this scenario?"))scenarios.splice(i,1);renderScenarios();}
+
+// ═══════════════════════════════════════════════════════════════
+//  SENSITIVITY TAB
+// ═══════════════════════════════════════════════════════════════
+function renderSensitivity(){
+  const el=document.getElementById("tab-sensitivity");
+  const rows=[
+    {label:"Material cost (%)",key:"matInf"},
+    {label:"Labour cost (%)",key:"labChg"},
+    {label:"Markup (%)",key:"markup"},
+    {label:"Contingency (%)",key:"cont"},
+    {label:"Land cost (RM 10k steps)",key:"land",abs:true,step:10000},
+    {label:"Interest rate (%)",key:"intRate"},
+    {label:"Sell price (RM 20k steps)",rev:true,step:20000},
+  ];
+  let html=`<h2 class="page">Sensitivity Analysis — impact on gross margin</h2>
+  <p style="font-size:11px;color:#8b949e;margin-bottom:13px">Each row shows gross margin when that variable shifts ±10 from current value.</p>
+  <div class="chart-box"><table class="dt">
+    <thead><tr><th>Variable</th><th class="sens-cell">−10</th><th class="sens-cell">−5</th><th class="sens-cell sens-base">0 (base)</th><th class="sens-cell">+5</th><th class="sens-cell">+10</th></tr></thead>
+    <tbody>`;
+  rows.forEach(row=>{
+    html+=`<tr><td style="font-weight:600">${row.label}</td>`;
+    [-10,-5,0,5,10].forEach(d=>{
+      const v2={...v},r2={...r};
+      if(row.rev)r2.price=r.price+d*(row.step||1);
+      else if(row.abs)v2[row.key]=v[row.key]+d*(row.step||1);
+      else v2[row.key]=v[row.key]+d;
+      const f=calcFin(bq,v2,r2,lot);
+      const mg=parseFloat(f.margin.toFixed(1));
+      const col=mg>=15?C.grn:mg>=10?C.acc:mg>=0?C.mut:C.red;
+      html+=`<td class="sens-cell${d===0?" sens-base":""}" style="color:${col}">${mg}%</td>`;
+    });
+    html+="</tr>";
+  });
+  html+="</tbody></table></div>";
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FEASIBILITY TAB
+// ═══════════════════════════════════════════════════════════════
+function renderFeasibility(){
+  const el=document.getElementById("tab-feasibility");
+  const flags=[
+    {f:fin.margin<10,lvl:"HIGH",msg:"Gross margin below 10%"},
+    {f:fin.margin<15&&fin.margin>=10,lvl:"MED",msg:"Margin 10–15% — moderate risk"},
+    {f:v.matInf>10,lvl:"HIGH",msg:"Material inflation >10% assumed"},
+    {f:v.loanRatio>0.8,lvl:"MED",msg:"Loan ratio >80%"},
+    {f:v.cont<5,lvl:"MED",msg:"Contingency below 5%"},
+    {f:r.price<fin.breakEven*1.1,lvl:"HIGH",msg:"Sell price within 10% of break-even"},
+    {f:v.dur>3,lvl:"MED",msg:"Construction >3 yrs"},
+    {f:fin.margin>=20,lvl:"OK",msg:"Strong margin ≥20%"},
+    {f:r.price>fin.breakEven*1.3,lvl:"OK",msg:"Good buffer above break-even"},
+  ].filter(x=>x.f);
+  const flagsHtml=flags.map(x=>`<div style="display:flex;gap:7px;padding:6px 0;border-bottom:1px solid #30363d;align-items:flex-start">
+    <span class="risk-badge" style="background:${x.lvl==="HIGH"?"rgba(248,81,73,.15)":x.lvl==="MED"?"rgba(240,165,0,.15)":"rgba(63,185,80,.15)"};color:${x.lvl==="HIGH"?C.red:x.lvl==="MED"?C.acc:C.grn}">${x.lvl}</span>
+    <span style="font-size:11px;color:#8b949e">${x.msg}</span>
+  </div>`).join("");
+
+  el.innerHTML=`
+  <h2 class="page">Pre-Project Feasibility Check</h2>
+  <div class="feas-vert" style="background:${fin.viable?"rgba(63,185,80,.08)":"rgba(248,81,73,.08)"};border-color:${fin.viable?C.grn:C.red}">
+    <div style="font-size:36px">${fin.viable?"✓":"✗"}</div>
+    <div>
+      <div style="font-size:18px;font-weight:700;color:${fin.viable?C.grn:C.red}">${fin.viable?"Project is viable":"Project needs review"}</div>
+      <div style="font-size:11px;color:#8b949e;margin-top:3px">${fin.viable?`Gross margin ${fmtP(fin.margin)} exceeds 10% minimum. Proceed with confidence.`:`Gross margin ${fmtP(fin.margin)} is below 10%. Adjust cost or pricing.`}</div>
+    </div>
+  </div>
+  <div class="g2 mb11">
+    <div class="card">
+      <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:9px">Key metrics</div>
+      ${[["TDC per unit",fmt(fin.tdc)],["GDV per unit",fmt(r.price)],["Profit per unit",fmt(fin.profit/r.units)],["Gross margin",fmtP(fin.margin)],["Break-even",fmt(fin.breakEven)],["Safety buffer",fmt(r.price-fin.breakEven)],["Cost/m²","RM "+Math.round(fin.psm).toLocaleString()],["Cost/ft²","RM "+Math.round(fin.psf).toLocaleString()]].map(([k,val])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #30363d;font-size:12px"><span style="color:#8b949e">${k}</span><span style="font-family:monospace;font-weight:700">${val}</span></div>`).join("")}
+    </div>
+    <div class="card">
+      <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:9px">Risk flags</div>
+      ${flagsHtml||`<div style="font-size:11px;color:#8b949e">No critical flags. Project looks healthy.</div>`}
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:11px;font-weight:700;color:#f0a500;margin-bottom:11px">Minimum recommended selling prices</div>
+    <div class="g3">
+      ${[{label:"Break-even (0%)",price:fin.breakEven,color:C.red},{label:"Min viable (10%)",price:fin.breakEven/0.9,color:C.acc},{label:"Target (20%)",price:fin.breakEven/0.8,color:C.grn}].map(x=>`<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:13px;border-top:3px solid ${x.color}">
+        <div style="font-size:10px;color:#8b949e;margin-bottom:7px">${x.label}</div>
+        <div style="font-family:monospace;font-size:17px;font-weight:700;color:${x.color}">${fmt(x.price)}</div>
+        <div style="font-size:10px;color:#8b949e;margin-top:4px">RM ${Math.round(x.price/v.gfa).toLocaleString()}/m²</div>
+      </div>`).join("")}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COMMAND CENTER
+// ═══════════════════════════════════════════════════════════════
+let cmdUndoStack=[];
+
+function addLog(role,text){
+  const log=document.getElementById("cmd-log");if(!log)return;
+  const div=document.createElement("div");
+  if(role==="user"){div.className="msg-user";div.innerHTML=`<span>${text}</span>`;}
+  else if(role==="ai"){div.className="msg-ai";div.innerHTML=`<span>${text}</span>`;}
+  else{div.className="msg-sys";div.textContent=text;}
+  log.appendChild(div);
+  log.scrollTop=log.scrollHeight;
+}
+function clearLog(){const log=document.getElementById("cmd-log");if(log)log.innerHTML="";addLog("sys","History cleared.");}
+function undoCmd(){
+  if(!cmdUndoStack.length){addLog("sys","⚠️ Nothing to undo.");return;}
+  const last=cmdUndoStack.pop();
+  v={...last.v};r={...last.r};bq=JSON.parse(JSON.stringify(last.bq));
+  syncSliderLabels();renderAll();
+  addLog("sys","↩ Last action undone.");
+}
+
+function parseCmd(raw){
+  const txt=raw.toLowerCase().trim();
+  const numRe=n=>{const m=n.match(/rm\s*([\d,]+\.?\d*)\s*m\b/i)||n.match(/rm\s*([\d,]+\.?\d*)\s*k\b/i)||n.match(/rm\s*([\d,]+\.?\d*)/i)||n.match(/([\d,]+\.?\d*)\s*m\b/i)||n.match(/([\d,]+\.?\d*)\s*k\b/i)||n.match(/([\d,]+\.?\d*)/);if(!m)return null;let n2=parseFloat(m[1].replace(/,/g,""));if(/m\b/i.test(n.slice(n.indexOf(m[1])+m[1].length,n.indexOf(m[1])+m[1].length+2)))n2*=1e6;else if(/k\b/i.test(n.slice(n.indexOf(m[1])+m[1].length,n.indexOf(m[1])+m[1].length+2)))n2*=1000;return n2;};
+  const pctRe=n=>{const m=n.match(/([\d.]+)\s*%/);return m?parseFloat(m[1]):null;};
+  const num=numRe(txt),pct=pctRe(txt);
+
+  // Compare
+  if(/compar|vs\b|versus/.test(txt)){
+    const ms=[...txt.matchAll(/rm\s*([\d,]+\.?\d*)\s*k?\b/gi)];
+    if(ms.length>=2){const a=parseFloat(ms[0][1].replace(/,/g,""))*(ms[0][0].toLowerCase().endsWith("k")?1000:1),b=parseFloat(ms[1][1].replace(/,/g,""))*(ms[1][0].toLowerCase().endsWith("k")?1000:1);if(a>1000&&b>1000)return{type:"COMPARE",a,b,desc:`Comparing ${fmt(a)} vs ${fmt(b)}`};}
+    const ns=txt.match(/\b(\d{4,})\b/g);if(ns&&ns.length>=2)return{type:"COMPARE",a:+ns[0],b:+ns[1],desc:`Comparing ${fmt(+ns[0])} vs ${fmt(+ns[1])}`};
+  }
+  // Navigate
+  if(/show|go to|open|navigate|display/.test(txt)&&!/cost|price|rate/.test(txt)){
+    const tabMap={dashboard:/dashboard|overview/,bq:/bq|bill|editor/,pricing:/pric/,variations:/variat/,compare:/compar/,scenarios:/scen/,sensitivity:/sens/,feasibility:/feasib|viable|break.?even/};
+    for(const[id,re]of Object.entries(tabMap))if(re.test(txt))return{type:"NAV",tab:id,desc:"Navigate to "+id};
+    if(/break.?even/.test(txt))return{type:"NAV",tab:"feasibility",desc:"Show break-even"};
+  }
+  // Presets
+  if(/optimis|optimize.*margin/.test(txt))return{type:"PRESET",name:"optimise",desc:"Optimise margin"};
+  if(/reduce.*cost.*10|cut.*10/.test(txt))return{type:"PRESET",name:"reduce10",desc:"Reduce all costs 10%"};
+  if(/premium.*pric/.test(txt))return{type:"PRESET",name:"premium",desc:"Premium pricing"};
+  if(/affordable|affordable.*launch/.test(txt))return{type:"PRESET",name:"affordable",desc:"Affordable launch"};
+  if(/stress.*test/.test(txt))return{type:"PRESET",name:"stress",desc:"Stress test"};
+  if(/add.*inflation|inflation.*5%|5%.*inflation/.test(txt))return{type:"PRESET",name:"inflation5",desc:"Add 5% inflation"};
+  if(/fast.*sell/.test(txt))return{type:"PRESET",name:"fastsell",desc:"Fast sell"};
+  // Queries
+  if(/what.*gdv|show.*gdv/.test(txt))return{type:"INFO",desc:`GDV = ${fmt(fin.gdv)} (${r.units} units × ${fmt(r.price)})`};
+  if(/what.*margin|show.*margin/.test(txt))return{type:"INFO",desc:`Gross margin = ${fmtP(fin.margin)} | Profit = ${fmt(fin.profit)}`};
+  if(/what.*tdc|total.*cost/.test(txt))return{type:"INFO",desc:`TDC per unit = ${fmt(fin.tdc)} | Project = ${fmt(fin.tdcT)}`};
+  if(/break.?even/.test(txt))return{type:"INFO",desc:`Break-even price = ${fmt(fin.breakEven)} per unit`};
+  if(/psf|per.*sqft/.test(txt)&&/what|show/.test(txt))return{type:"INFO",desc:`Cost per ft² = RM ${Math.round(fin.psf).toLocaleString()}`};
+  // Selling price
+  if(/sell.*price|sale.*price|selling.*price/.test(txt)&&num&&num>10000)return{type:"SET_R",key:"price",value:num,desc:`Selling price → ${fmt(num)}`};
+  // Units
+  if(/unit|lot|house/.test(txt)&&num&&num<1000&&!/per.*unit|\/unit/.test(txt))return{type:"SET_R",key:"units",value:Math.round(num),desc:`Units → ${Math.round(num)}`};
+  // Land
+  if(/land/.test(txt)&&num&&!/land.*size|site.*area/.test(txt))return{type:"SET_V",key:"land",value:num,desc:`Land cost → ${fmt(num)}`};
+  // Markup
+  if(/markup|contractor.*mark/.test(txt)){if(pct!=null)return{type:"SET_V",key:"markup",value:pct,desc:`Markup → ${pct}%`};if(num!=null)return{type:"SET_V",key:"markup",value:num,desc:`Markup → ${num}%`};}
+  // Contingency
+  if(/contingency/.test(txt)){if(pct!=null)return{type:"SET_V",key:"cont",value:pct,desc:`Contingency → ${pct}%`};if(num!=null)return{type:"SET_V",key:"cont",value:num,desc:`Contingency → ${num}%`};}
+  // Interest
+  if(/interest|financ|loan.*rate|bridging/.test(txt)){if(pct!=null)return{type:"SET_V",key:"intRate",value:pct,desc:`Interest rate → ${pct}%`};if(num!=null)return{type:"SET_V",key:"intRate",value:num,desc:`Interest rate → ${num}%`};}
+  // Professional
+  if(/prof|consultant|qs.*fee|architect/.test(txt)&&num)return{type:"SET_V",key:"prof",value:num,desc:`Professional fees → ${fmt(num)}`};
+  // Marketing
+  if(/sales|marketing|commission/.test(txt)&&num)return{type:"SET_V",key:"sales",value:num,desc:`Sales & marketing → ${fmt(num)}`};
+  // Regulatory
+  if(/regulatory|compliance|permit/.test(txt)&&num)return{type:"SET_V",key:"reg",value:num,desc:`Regulatory → ${fmt(num)}`};
+  // GFA
+  if(/gfa|floor.*area|built.?up/.test(txt)&&num)return{type:"SET_V",key:"gfa",value:num,desc:`GFA → ${num} m²`};
+  // Duration
+  if(/period|duration|year|yr/.test(txt)&&num&&num<20)return{type:"SET_V",key:"dur",value:num,desc:`Construction period → ${num} yr`};
+  // Loan ratio
+  if(/loan.*ratio|gearing/.test(txt)&&(pct||num)){const val=pct||num;return{type:"SET_V",key:"loanRatio",value:val>1?val/100:val,desc:`Loan ratio → ${Math.round((val>1?val:val*100))}%`};}
+  // Material inflation
+  if(/material.*cost|material.*inf/.test(txt)){if(pct!=null)return{type:"SET_V",key:"matInf",value:pct,desc:`Material cost → ${pct}%`};}
+  // Labour
+  if(/labour|labor/.test(txt)){if(pct!=null)return{type:"SET_V",key:"labChg",value:pct,desc:`Labour cost → ${pct}%`};}
+  // Reduce/increase build cost
+  if(/(reduce|cut|lower|decrease).*(build|construction|cost|bq)/i.test(txt)&&pct)return{type:"SCALE_BQ",factor:1-pct/100,desc:`Reduce all BQ rates by ${pct}%`};
+  if(/(increase|raise|boost).*(build|construction|cost|bq)/i.test(txt)&&pct)return{type:"SCALE_BQ",factor:1+pct/100,desc:`Increase all BQ rates by ${pct}%`};
+  // Reduce/increase selling price
+  if(/(reduce|cut|lower).*(sell|price)/i.test(txt)&&pct)return{type:"SET_R",key:"price",value:Math.round(r.price*(1-pct/100)),desc:`Selling price −${pct}% → ${fmt(Math.round(r.price*(1-pct/100)))}`};
+  if(/(increase|raise|boost).*(sell|price)/i.test(txt)&&pct)return{type:"SET_R",key:"price",value:Math.round(r.price*(1+pct/100)),desc:`Selling price +${pct}% → ${fmt(Math.round(r.price*(1+pct/100)))}`};
+  // BQ item keywords
+  for(const kw of["tile","porcelain","concrete","rebar","steel","roof","window","door","electrical","plumbing","painting","fencing"]){
+    if(txt.includes(kw)){
+      if(pct&&/(reduce|cut|lower)/i.test(txt))return{type:"SCALE_BQ_ITEM",keyword:kw,factor:1-pct/100,desc:`Reduce ${kw} items by ${pct}%`};
+      if(pct&&/(increase|raise|boost)/i.test(txt))return{type:"SCALE_BQ_ITEM",keyword:kw,factor:1+pct/100,desc:`Increase ${kw} items by ${pct}%`};
+      if(num)return{type:"SET_BQ_ITEM",keyword:kw,value:num,desc:`${kw.charAt(0).toUpperCase()+kw.slice(1)} rate → RM ${num}`};
+    }
+  }
+  // Property dev terms
+  if(/infra|infrastructure|earthwork/.test(txt)&&num)return{type:"SET_V",key:"reg",value:num,desc:`Infrastructure/earthworks → ${fmt(num)}`};
+  if(/sewerage|sewer|tnb|utility/.test(txt)&&num)return{type:"SET_V",key:"reg",value:num,desc:`Utilities (sewerage/TNB) → ${fmt(num)}`};
+  if(/gdv|gross.*dev.*value/.test(txt)){const n=num;if(n&&n>10000)return{type:"SET_R",key:"price",value:Math.round(n/r.units),desc:`GDV ${fmt(n)} → price per unit ${fmt(Math.round(n/r.units))}`};}
+  if(/gdc|gross.*dev.*cost/.test(txt)&&pct&&/(reduce|cut)/i.test(txt))return{type:"SCALE_BQ",factor:1-pct/100,desc:`Reduce GDC (build cost) by ${pct}%`};
+  // Dark / export
+  if(/dark|light.*mode/.test(txt))return{type:"INFO",desc:"DevCost Pro uses dark mode permanently. No toggle available."};
+  if(/export|download|pdf/.test(txt))return{type:"INFO",desc:"Use browser Print (Ctrl+P) → Save as PDF to export."};
+
+  return{type:"CLARIFY",question:buildQ(txt)};
+}
+function buildQ(txt){
+  if(/\d/.test(txt)&&!/price|cost|unit|rate|land|fee|infra/.test(txt))return"Which field? (e.g. selling price, land cost, units, infra)";
+  if(/cost/.test(txt)&&!/build|land|infra|construct/.test(txt))return"Which cost? (e.g. build cost, land cost, consultant fee, contingency)";
+  if(/acre/.test(txt))return"What cost per acre? (e.g. \"infra RM3000 per acre\")";
+  return"Couldn't parse. Try: \"Set selling price RM380k\", \"Reduce build cost 5%\", or \"Set units 60\".";
+}
+
+function runCmd(raw){
+  if(!raw||!raw.trim())return;
+  addLog("user",raw.trim());
+  const cmd=parseCmd(raw);
+  if(!cmd){addLog("ai","⚠️ Couldn't understand that. "+buildQ(raw.toLowerCase()));return;}
+  // Save undo snapshot
+  cmdUndoStack.push({v:{...v},r:{...r},bq:JSON.parse(JSON.stringify(bq))});
+  if(cmdUndoStack.length>10)cmdUndoStack.shift();
+  switch(cmd.type){
+    case"SET_V": v={...v,[cmd.key]:cmd.value};syncSliderLabels();break;
+    case"SET_R": r={...r,[cmd.key]:cmd.value};syncSliderLabels();break;
+    case"SCALE_BQ": bq=bq.map(x=>({...x,rate:parseFloat((x.rate*cmd.factor).toFixed(2))}));break;
+    case"SCALE_BQ_ITEM": bq=bq.map(x=>x.desc.toLowerCase().includes(cmd.keyword)?{...x,rate:parseFloat((x.rate*cmd.factor).toFixed(2))}:x);break;
+    case"SET_BQ_ITEM": bq=bq.map(x=>x.desc.toLowerCase().includes(cmd.keyword)?{...x,rate:cmd.value}:x);break;
+    case"NAV": showTab(cmd.tab,document.querySelector(`.ntab:nth-child(${["dashboard","bq","pricing","variations","compare","scenarios","sensitivity","feasibility"].indexOf(cmd.tab)+1})`));break;
+    case"COMPARE":{
+      const fa=calcFin(bq,v,{...r,price:cmd.a},lot),fb=calcFin(bq,v,{...r,price:cmd.b},lot);
+      compareResult={a:cmd.a,b:cmd.b,fa,fb};
+      renderCompareBox();
+      break;}
+    case"PRESET": applyPreset(cmd.name);break;
+    case"INFO": addLog("ai","ℹ️ "+cmd.desc);return;
+    case"CLARIFY": addLog("ai","❓ "+cmd.question);return;
+    default: break;
+  }
+  renderAll();
+  addLog("ai","✓ "+cmd.desc);
+}
+function applyPreset(name){
+  switch(name){
+    case"optimise": v={...v,markup:8,cont:4,sales:6000,prof:12000};break;
+    case"reduce10": bq=bq.map(x=>({...x,rate:parseFloat((x.rate*0.90).toFixed(2))}));break;
+    case"premium": r={...r,price:Math.round(r.price*1.15)};v={...v,gfa:v.gfa+10};break;
+    case"affordable": r={...r,price:Math.round(r.price*0.90),units:Math.round(r.units*1.15)};break;
+    case"stress": bq=bq.map(x=>({...x,rate:parseFloat((x.rate*1.15).toFixed(2))}));r={...r,price:Math.round(r.price*0.90)};v={...v,intRate:Math.min(v.intRate+2,12),cont:Math.min(v.cont+3,20)};break;
+    case"inflation5": bq=bq.map(x=>({...x,rate:parseFloat((x.rate*1.05).toFixed(2))}));break;
+    case"fastsell": r={...r,price:Math.round(r.price*0.92),units:Math.round(r.units*1.20)};break;
+  }
+  syncSliderLabels();
+}
+function renderCompareBox(){
+  const box=document.getElementById("compare-box");if(!box||!compareResult)return;
+  const{a,b,fa,fb}=compareResult;
+  const better=fa.margin>fb.margin?"a":"b";
+  box.classList.remove("hidden");
+  box.innerHTML=`
+  <div style="font-size:10px;font-weight:700;color:#f0a500;margin-bottom:7px">📊 Price Comparison</div>
+  <div class="cmp-pair">
+    ${[{label:"RM "+a.toLocaleString(),f:fa,k:"a"},{label:"RM "+b.toLocaleString(),f:fb,k:"b"}].map(({label,f,k})=>`
+    <div class="cmp-card ${better===k?"winner":""}">
+      <div style="font-size:10px;font-weight:700;color:${better===k?C.grn:C.txt};margin-bottom:4px">${label}${better===k?" ✓":""}</div>
+      <div style="color:#8b949e">TDC/unit: <span style="color:#e6edf3;font-family:monospace">${fmt(f.tdc)}</span></div>
+      <div style="color:#8b949e">Profit: <span style="color:${f.profit>=0?C.grn:C.red};font-family:monospace">${fmt(f.profit)}</span></div>
+      <div style="color:#8b949e">Margin: <span style="font-family:monospace;font-weight:700;color:${f.margin>=15?C.grn:f.margin>=10?C.acc:C.red}">${fmtP(f.margin)}</span></div>
+    </div>`).join("")}
+  </div>
+  <div style="margin-top:7px;font-size:10px;color:#8b949e">Recommended: <span style="color:#3fb950;font-weight:700">${fmt(better==="a"?a:b)}</span> — margin <span style="color:#3fb950;font-weight:700">${fmtP(better==="a"?fa.margin:fb.margin)}</span></div>
+  <button onclick="document.getElementById('compare-box').classList.add('hidden');compareResult=null" style="margin-top:5px;background:none;border:none;color:#8b949e;font-size:10px;cursor:pointer">✕ dismiss</button>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+window.addEventListener("DOMContentLoaded",()=>{
+  syncSliderLabels();
+  renderAll();
+  addLog("sys","Welcome to Command Center. Type a command or click a preset.");
+  addLog("sys","Try: \"Set selling price RM380k\" or \"Reduce tile cost 15%\"");
+});
+</script>
+</body>
+</html>
