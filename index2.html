@@ -5,10 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>DevCost Pro — BQ Analyser</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<!-- Firebase v10 SDK (modular, via CDN compat build) -->
-<script type="module">
-// ── Firebase is initialised at bottom of page in the module script ──
-</script>
 <style>
 /* ═══════════════════════════════════════════════════
    RESET + BASE
@@ -710,16 +706,16 @@ function renderDashboard(){
   <div class="g2 mb11">
     <div class="chart-box">
       <div class="ct">Cost breakdown by category</div>
-      <div style="position:relative;height:220px"><canvas id="ch-pie"></canvas></div>
+      <canvas id="ch-pie" height="200"></canvas>
     </div>
     <div class="chart-box">
       <div class="ct">TDC waterfall per unit</div>
-      <div style="position:relative;height:220px"><canvas id="ch-wf"></canvas></div>
+      <canvas id="ch-wf" height="200"></canvas>
     </div>
   </div>
   <div class="chart-box">
     <div class="ct">Lot type comparison</div>
-    <div style="position:relative;height:140px"><canvas id="ch-lots"></canvas></div>
+    <canvas id="ch-lots" height="120"></canvas>
   </div>`;
 
   // Pie
@@ -822,10 +818,8 @@ function renderBQEditor(){
         </tr>`;
       });
       html+=`</tbody><tfoot><tr>
-        <td colspan="6" style="text-align:right;color:#8b949e;font-size:11px;font-weight:600">Section total (${items.length} items)</td>
-        <td style="text-align:right;font-family:monospace;font-size:12px;color:#f0a500;font-weight:700">${Math.round(secTotal).toLocaleString()}</td>
-        <td style="text-align:right;font-family:monospace;font-size:11px;color:#f0a500;font-weight:700">${secPct}%</td>
-        <td colspan="3"></td>
+        <td colspan="6" style="text-align:right;color:#8b949e">Section subtotal</td>
+        <td>${fmt(secTotal)}</td><td>${secPct}%</td><td colspan="3"></td>
       </tr></tfoot></table></div>`;
     }
     html+="</div>";
@@ -973,7 +967,7 @@ function renderPricing(){
   </div>
   <div class="chart-box">
     <div class="ct">Margin vs selling price</div>
-    <div style="position:relative;height:180px"><canvas id="ch-margin-price"></canvas></div>
+    <canvas id="ch-margin-price" height="160"></canvas>
   </div>`;
 
   const pData=Array.from({length:13},(_,i)=>{
@@ -1168,8 +1162,8 @@ function renderCompare(){
     </tbody></table>
   </div>
   <div class="g2">
-    <div class="chart-box"><div class="ct">TDC per unit</div><div style="position:relative;height:200px"><canvas id="ch-cmp-tdc"></canvas></div></div>
-    <div class="chart-box"><div class="ct">Gross margin %</div><div style="position:relative;height:200px"><canvas id="ch-cmp-margin"></canvas></div></div>
+    <div class="chart-box"><div class="ct">TDC per unit</div><canvas id="ch-cmp-tdc" height="180"></canvas></div>
+    <div class="chart-box"><div class="ct">Gross margin %</div><canvas id="ch-cmp-margin" height="180"></canvas></div>
   </div>`;
 
   const labels=["Base",...variations.map(v=>v.name.substring(0,20))];
@@ -1207,7 +1201,7 @@ function renderScenarios(){
   const cmpHtml=scenarios.length>1?`
   <div class="chart-box" style="margin-top:18px">
     <div class="ct">Scenario comparison</div>
-    <div style="position:relative;height:240px"><canvas id="ch-scen"></canvas></div>
+    <canvas id="ch-scen" height="220"></canvas>
   </div>`:"";
 
   el.innerHTML=`
@@ -1514,261 +1508,5 @@ window.addEventListener("DOMContentLoaded",()=>{
   addLog("sys","Try: \"Set selling price RM380k\" or \"Reduce tile cost 15%\"");
 });
 </script>
-
-<!-- ═══════════════════════════════════════════════════════════════
-     FIREBASE INTEGRATION
-     Connects to your kk-dev-log Firestore project.
-     Saves / loads / deletes BQ project states as "expenses" documents.
-════════════════════════════════════════════════════════════════ -->
-<style>
-/* Firebase panel styles */
-#fb-panel{position:fixed;bottom:20px;right:20px;width:320px;background:#161b22;border:1px solid #30363d;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:999;font-size:12px;overflow:hidden}
-#fb-panel.collapsed #fb-body{display:none}
-#fb-header{background:#1c2128;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border-bottom:1px solid #30363d}
-#fb-header h3{font-size:12px;font-weight:700;color:#e6edf3;display:flex;align-items:center;gap:6px}
-#fb-status{width:8px;height:8px;border-radius:50%;background:#30363d;transition:background .3s}
-#fb-status.connected{background:#3fb950}
-#fb-status.error{background:#f85149}
-#fb-body{padding:12px 14px}
-.fb-btn{padding:5px 11px;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
-.fb-btn-acc{background:#f0a500;color:#000}
-.fb-btn-ghost{background:transparent;color:#8b949e;border:1px solid #30363d}
-.fb-btn-red{background:transparent;color:#f85149;border:1px solid rgba(248,81,73,.3);font-size:10px;padding:3px 8px}
-.fb-input{width:100%;margin-bottom:8px;padding:6px 9px;font-size:12px}
-.fb-msg{font-size:10px;margin-top:6px;padding:5px 8px;border-radius:4px;display:none}
-.fb-msg.ok{background:rgba(63,185,80,.12);color:#3fb950;display:block}
-.fb-msg.err{background:rgba(248,81,73,.12);color:#f85149;display:block}
-.fb-saved-item{display:flex;align-items:center;gap:7px;padding:7px 9px;background:#1c2128;border:1px solid #30363d;border-radius:6px;margin-bottom:5px}
-.fb-saved-item .fi-name{flex:1;font-weight:600;font-size:11px;color:#e6edf3}
-.fb-saved-item .fi-meta{font-size:10px;color:#8b949e}
-.fb-loader{text-align:center;color:#8b949e;font-size:11px;padding:10px}
-#fb-saved-list{max-height:180px;overflow-y:auto;margin-top:8px}
-</style>
-
-<!-- Firebase floating panel HTML -->
-<div id="fb-panel" class="collapsed">
-  <div id="fb-header" onclick="toggleFbPanel()">
-    <h3><span id="fb-status"></span>🔥 Firebase Cloud Save</h3>
-    <span id="fb-chevron" style="color:#8b949e;font-size:12px">▲</span>
-  </div>
-  <div id="fb-body">
-    <div id="fb-msg" class="fb-msg"></div>
-    <!-- Save current state -->
-    <div style="margin-bottom:10px">
-      <div style="font-size:10px;color:#8b949e;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Save to Cloud</div>
-      <input id="fb-save-name" class="fb-input" placeholder="Name this save e.g. Base Case April 2025">
-      <div style="display:flex;gap:6px">
-        <button class="fb-btn fb-btn-acc" style="flex:1" onclick="fbSave()">💾 Save to Firestore</button>
-        <button class="fb-btn fb-btn-ghost" onclick="fbLoadList()">↻ Refresh</button>
-      </div>
-    </div>
-    <hr style="border:none;border-top:1px solid #30363d;margin:10px 0">
-    <!-- Saved list -->
-    <div style="font-size:10px;color:#8b949e;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Saved states</div>
-    <div id="fb-saved-list"><div class="fb-loader">Click ↻ to load your saves</div></div>
-  </div>
-</div>
-
-<script type="module">
-// ── Firebase SDK ─────────────────────────────────────────────
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getFirestore, collection, addDoc, getDocs,
-  deleteDoc, doc, serverTimestamp, orderBy, query
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// ── YOUR Firebase config ─────────────────────────────────────
-const firebaseConfig = {
-  apiKey:            "AIzaSyDa1zojCmUlTQnM--YMV9Lh7vWjE54ru2A",
-  authDomain:        "kk-dev-log.firebaseapp.com",
-  projectId:         "kk-dev-log",
-  storageBucket:     "kk-dev-log.firebasestorage.app",
-  messagingSenderId: "892424883213",
-  appId:             "1:892424883213:web:afd074dd849a06deb61944"
-};
-
-// ── Initialise ────────────────────────────────────────────────
-let db;
-try {
-  const app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  setFbStatus("connected");
-  console.log("✅ Firebase connected to kk-dev-log");
-} catch(e) {
-  setFbStatus("error");
-  console.error("❌ Firebase init failed:", e);
-}
-
-// ── Status indicator ──────────────────────────────────────────
-function setFbStatus(state) {
-  const el = document.getElementById("fb-status");
-  if (el) el.className = state; // 'connected' | 'error'
-}
-
-function showFbMsg(text, isError=false) {
-  const el = document.getElementById("fb-msg");
-  if (!el) return;
-  el.textContent = text;
-  el.className = "fb-msg " + (isError ? "err" : "ok");
-  setTimeout(() => { el.className = "fb-msg"; }, 4000);
-}
-
-// ── SAVE: push current app state to Firestore ─────────────────
-// Each saved document = one "expense/project state" record.
-// Fields stored:
-//   name        — user-given label
-//   savedAt     — server timestamp
-//   bq          — full BQ array (rates, qtys)
-//   variables   — cost adjustments (markup, contingency, etc.)
-//   revenue     — units, selling price
-//   lot         — selected lot index
-//   summary     — pre-computed KPIs for quick display
-window.fbSave = async function() {
-  if (!db) { showFbMsg("Firebase not connected.", true); return; }
-
-  const nameInput = document.getElementById("fb-save-name");
-  const name = nameInput?.value.trim() || "Project Save " + new Date().toLocaleDateString();
-
-  // Grab current app state (these are global vars in the main script)
-  const payload = {
-    name,
-    savedAt: serverTimestamp(),
-    bq:        JSON.parse(JSON.stringify(window._appBQ   || [])),
-    variables: JSON.parse(JSON.stringify(window._appV    || {})),
-    revenue:   JSON.parse(JSON.stringify(window._appR    || {})),
-    lot:       window._appLot || 0,
-    summary: {
-      baseTotal: window._appBaseTotal || 0,
-      tdc:       window._appFin?.tdc   || 0,
-      gdv:       window._appFin?.gdv   || 0,
-      profit:    window._appFin?.profit || 0,
-      margin:    window._appFin?.margin || 0,
-    }
-  };
-
-  try {
-    const docRef = await addDoc(collection(db, "project_saves"), payload);
-    console.log("✅ Saved with ID:", docRef.id);
-    showFbMsg(`✅ Saved "${name}" to Firestore!`);
-    if (nameInput) nameInput.value = "";
-    fbLoadList(); // refresh the list
-  } catch(e) {
-    console.error("Save failed:", e);
-    showFbMsg("❌ Save failed: " + e.message, true);
-  }
-};
-
-// ── LOAD LIST: fetch all saved documents ──────────────────────
-window.fbLoadList = async function() {
-  const listEl = document.getElementById("fb-saved-list");
-  if (!listEl) return;
-  if (!db) { listEl.innerHTML = '<div class="fb-loader" style="color:#f85149">Not connected</div>'; return; }
-
-  listEl.innerHTML = '<div class="fb-loader">Loading from Firestore…</div>';
-
-  try {
-    const q = query(collection(db, "project_saves"), orderBy("savedAt", "desc"));
-    const snap = await getDocs(q);
-
-    if (snap.empty) {
-      listEl.innerHTML = '<div class="fb-loader">No saves found. Save a state above.</div>';
-      return;
-    }
-
-    listEl.innerHTML = "";
-    snap.forEach(docSnap => {
-      const d = docSnap.data();
-      const id = docSnap.id;
-      const date = d.savedAt?.toDate?.()?.toLocaleDateString() || "unknown date";
-      const margin = d.summary?.margin?.toFixed(1) || "—";
-      const tdc    = d.summary?.tdc ? "RM " + Math.round(d.summary.tdc).toLocaleString() : "—";
-
-      const item = document.createElement("div");
-      item.className = "fb-saved-item";
-      item.innerHTML = `
-        <div style="flex:1">
-          <div class="fi-name">${d.name || "Untitled"}</div>
-          <div class="fi-meta">${date} · TDC: ${tdc} · Margin: ${margin}%</div>
-        </div>
-        <button class="fb-btn fb-btn-ghost" style="font-size:10px;padding:3px 8px" onclick="fbLoad('${id}')">Load</button>
-        <button class="fb-btn fb-btn-red" onclick="fbDelete('${id}','${(d.name||'').replace(/'/g,"")}')">✕</button>`;
-      listEl.appendChild(item);
-    });
-  } catch(e) {
-    console.error("Load list failed:", e);
-    listEl.innerHTML = `<div class="fb-loader" style="color:#f85149">Error: ${e.message}</div>`;
-  }
-};
-
-// ── LOAD: restore a saved document into the app ───────────────
-window.fbLoad = async function(docId) {
-  if (!db) return;
-  try {
-    // Re-fetch single doc
-    const snap = await getDocs(query(collection(db, "project_saves"), orderBy("savedAt","desc")));
-    let data = null;
-    snap.forEach(d => { if (d.id === docId) data = d.data(); });
-
-    if (!data) { showFbMsg("Could not find that save.", true); return; }
-
-    // Push into app globals — the main script reads these
-    if (data.bq        && data.bq.length)   { window._appBQ  = data.bq;  window.bq  = data.bq; }
-    if (data.variables && Object.keys(data.variables).length) { window._appV = data.variables; window.v = data.variables; }
-    if (data.revenue   && Object.keys(data.revenue).length)   { window._appR = data.revenue;   window.r = data.revenue; }
-    if (typeof data.lot === "number")        { window._appLot = data.lot; window.lot = data.lot; }
-
-    // Re-render app
-    if (typeof window.syncSliderLabels === "function") window.syncSliderLabels();
-    if (typeof window.renderAll        === "function") window.renderAll();
-
-    // Update lot buttons UI
-    document.querySelectorAll('.lot-btn').forEach((b,i) => b.classList.toggle('on', i === (data.lot||0)));
-
-    showFbMsg(`✅ Loaded "${data.name}" — app state restored!`);
-    console.log("✅ Loaded save:", docId, data.name);
-  } catch(e) {
-    console.error("Load failed:", e);
-    showFbMsg("❌ Load failed: " + e.message, true);
-  }
-};
-
-// ── DELETE: remove a document from Firestore ─────────────────
-window.fbDelete = async function(docId, name) {
-  if (!db) return;
-  if (!confirm(`Delete save "${name}"? This cannot be undone.`)) return;
-  try {
-    await deleteDoc(doc(db, "project_saves", docId));
-    showFbMsg(`🗑️ Deleted "${name}"`);
-    fbLoadList();
-  } catch(e) {
-    console.error("Delete failed:", e);
-    showFbMsg("❌ Delete failed: " + e.message, true);
-  }
-};
-
-// ── Panel toggle ──────────────────────────────────────────────
-window.toggleFbPanel = function() {
-  const panel   = document.getElementById("fb-panel");
-  const chevron = document.getElementById("fb-chevron");
-  const isOpen  = !panel.classList.contains("collapsed");
-  panel.classList.toggle("collapsed", isOpen);
-  if (chevron) chevron.textContent = isOpen ? "▲" : "▼";
-};
-
-// ── Expose app globals so Firebase can read them ──────────────
-// The main script vars (bq, v, r, lot, fin, baseTotal) are already
-// global. We also expose them via window._ names for safety.
-function syncGlobals() {
-  window._appBQ        = typeof bq        !== "undefined" ? bq        : [];
-  window._appV         = typeof v         !== "undefined" ? v         : {};
-  window._appR         = typeof r         !== "undefined" ? r         : {};
-  window._appLot       = typeof lot       !== "undefined" ? lot       : 0;
-  window._appFin       = typeof fin       !== "undefined" ? fin       : {};
-  window._appBaseTotal = typeof baseTotal !== "undefined" ? baseTotal : 0;
-}
-// Sync every 2 seconds — lightweight polling
-setInterval(syncGlobals, 2000);
-syncGlobals();
-
-console.log("🔥 Firebase module loaded. Use the panel (bottom-right) to save/load/delete.");
-</script>
+</body>
+</html>
